@@ -1,0 +1,21 @@
+HloModule llm_compute_bound_large_workable, entry_computation_layout={(bf16[2048,64]{1,0}, bf16[64,64]{1,0}, bf16[64,64]{1,0}, bf16[64,64]{1,0}, bf16[64,64]{1,0})->bf16[2048,64]{1,0}}
+
+ENTRY main {
+  // Large token stream
+  %x = bf16[2048,64] parameter(0)
+
+  // Projection weights
+  %w1 = bf16[64,64] parameter(1)
+  %w2 = bf16[64,64] parameter(2)
+  %w3 = bf16[64,64] parameter(3)
+  %w4 = bf16[64,64] parameter(4)
+
+  // Compute-heavy chain: multiple GEMMs over the same large activation
+  %h1 = bf16[2048,64] dot(%x, %w1), lhs_contracting_dims={1}, rhs_contracting_dims={0}
+  %h2 = bf16[2048,64] dot(%h1, %w2), lhs_contracting_dims={1}, rhs_contracting_dims={0}
+  %h3 = bf16[2048,64] dot(%h2, %w3), lhs_contracting_dims={1}, rhs_contracting_dims={0}
+  %h4 = bf16[2048,64] dot(%h3, %w4), lhs_contracting_dims={1}, rhs_contracting_dims={0}
+
+  // Residual output
+  ROOT %out = bf16[2048,64] add(%h4, %x)
+}

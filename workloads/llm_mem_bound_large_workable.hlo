@@ -1,0 +1,23 @@
+HloModule llm_mem_bound_large_workable, entry_computation_layout={(bf16[2048,64]{1,0}, bf16[2048,64]{1,0}, bf16[2048,64]{1,0}, bf16[2048,64]{1,0}, bf16[2048,64]{1,0}, bf16[2048,64]{1,0}, bf16[2048,64]{1,0}, bf16[2048,64]{1,0})->bf16[2048,64]{1,0}}
+
+ENTRY main {
+  // LLM-like residual-stream accumulation at long sequence length.
+  // This is intentionally memory-bound: many large tensor reads/writes
+  // with low arithmetic intensity (mostly elementwise adds).
+  %x = bf16[2048,64] parameter(0)
+  %r1 = bf16[2048,64] parameter(1)
+  %r2 = bf16[2048,64] parameter(2)
+  %r3 = bf16[2048,64] parameter(3)
+  %r4 = bf16[2048,64] parameter(4)
+  %r5 = bf16[2048,64] parameter(5)
+  %r6 = bf16[2048,64] parameter(6)
+  %r7 = bf16[2048,64] parameter(7)
+
+  %y1 = bf16[2048,64] add(%x, %r1)
+  %y2 = bf16[2048,64] add(%y1, %r2)
+  %y3 = bf16[2048,64] add(%y2, %r3)
+  %y4 = bf16[2048,64] add(%y3, %r4)
+  %y5 = bf16[2048,64] add(%y4, %r5)
+  %y6 = bf16[2048,64] add(%y5, %r6)
+  ROOT %out = bf16[2048,64] add(%y6, %r7)
+}

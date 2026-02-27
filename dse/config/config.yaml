@@ -1,0 +1,16 @@
+hardware:
+  peak_compute_ops_per_s: 1.0e11
+  bandwidth_bytes_per_s: 2.0e10
+
+sweep:
+  bandwidth:
+    start: 1.0e8
+    stop: 1.0e11
+    num: 25
+    scale: log
+
+targets:
+  latencies_s:
+    - 1.0e-5
+    - 5.0e-6
+    - 2.0e-6
