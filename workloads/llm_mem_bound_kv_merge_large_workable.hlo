@@ -1,0 +1,28 @@
+HloModule llm_mem_bound_kv_merge_large_workable, entry_computation_layout={(bf16[2048,64]{1,0}, bf16[2048,64]{1,0}, bf16[2048,64]{1,0}, bf16[2048,64]{1,0}, bf16[2048,64]{1,0}, bf16[2048,64]{1,0}, bf16[2048,64]{1,0}, bf16[2048,64]{1,0}, bf16[2048,64]{1,0}, bf16[2048,64]{1,0})->bf16[2048,64]{1,0}}
+
+ENTRY main {
+  // Memory-heavy LLM-style tensor merge (KV-cache update style):
+  // many large elementwise reads/writes and low arithmetic intensity.
+  %x = bf16[2048,64] parameter(0)
+  %k0 = bf16[2048,64] parameter(1)
+  %k1 = bf16[2048,64] parameter(2)
+  %k2 = bf16[2048,64] parameter(3)
+  %k3 = bf16[2048,64] parameter(4)
+  %v0 = bf16[2048,64] parameter(5)
+  %v1 = bf16[2048,64] parameter(6)
+  %v2 = bf16[2048,64] parameter(7)
+  %v3 = bf16[2048,64] parameter(8)
+  %res = bf16[2048,64] parameter(9)
+
+  %m0 = bf16[2048,64] add(%x, %k0)
+  %m1 = bf16[2048,64] add(%m0, %k1)
+  %m2 = bf16[2048,64] add(%m1, %k2)
+  %m3 = bf16[2048,64] add(%m2, %k3)
+
+  %n0 = bf16[2048,64] add(%m3, %v0)
+  %n1 = bf16[2048,64] add(%n0, %v1)
+  %n2 = bf16[2048,64] add(%n1, %v2)
+  %n3 = bf16[2048,64] add(%n2, %v3)
+
+  ROOT %out = bf16[2048,64] add(%n3, %res)
+}

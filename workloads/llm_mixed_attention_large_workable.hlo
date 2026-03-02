@@ -1,0 +1,34 @@
+HloModule llm_mixed_attention_large_workable, entry_computation_layout={(bf16[2048,64]{1,0}, bf16[2048,64]{1,0}, bf16[2048,64]{1,0}, bf16[64,64]{1,0}, bf16[64,64]{1,0}, bf16[64,64]{1,0}, bf16[64,64]{1,0})->bf16[2048,64]{1,0}}
+
+%reduce_add (x: bf16[], y: bf16[]) -> bf16[] {
+  %x = bf16[] parameter(0)
+  %y = bf16[] parameter(1)
+  ROOT %sum = bf16[] add(%x, %y)
+}
+
+ENTRY main {
+  // Large-token LLM-like block with both compute and normalization.
+  %x = bf16[2048,64] parameter(0)
+  %k = bf16[2048,64] parameter(1)
+  %v = bf16[2048,64] parameter(2)
+
+  %wq = bf16[64,64] parameter(3)
+  %wk = bf16[64,64] parameter(4)
+  %wv = bf16[64,64] parameter(5)
+  %wo = bf16[64,64] parameter(6)
+
+  %q_proj = bf16[2048,64] dot(%x, %wq), lhs_contracting_dims={1}, rhs_contracting_dims={0}
+  %k_proj = bf16[2048,64] dot(%k, %wk), lhs_contracting_dims={1}, rhs_contracting_dims={0}
+  %v_proj = bf16[2048,64] dot(%v, %wv), lhs_contracting_dims={1}, rhs_contracting_dims={0}
+
+  %scores = bf16[2048,64] add(%q_proj, %k_proj)
+  %scores_exp = bf16[2048,64] exponential(%scores)
+  %zero = bf16[] constant(0)
+  %sum = bf16[2048] reduce(%scores_exp, %zero), dimensions={1}, to_apply=%reduce_add
+  %sum_broadcast = bf16[2048,64] broadcast(%sum), dimensions={0}
+  %probs = bf16[2048,64] divide(%scores_exp, %sum_broadcast)
+
+  %ctx = bf16[2048,64] dot(%probs, %wo), lhs_contracting_dims={1}, rhs_contracting_dims={0}
+  %res = bf16[2048,64] add(%ctx, %v_proj)
+  ROOT %out = bf16[2048,64] add(%res, %x)
+}
