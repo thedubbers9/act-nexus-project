@@ -1,0 +1,9 @@
+{
+  "model_file": "/workspace/pt2hlo/examples/tiny_llm_block.py",
+  "model_entry": "build_model",
+  "workload_index": 0,
+  "inputs": [
+    "1,128,128:float32"
+  ],
+  "output_hlo": "/workspace/pt2hlo/out_tiny_llm/workload_000.hlo"
+}
