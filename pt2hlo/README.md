@@ -2,10 +2,16 @@
 
 This folder provides a small CLI that converts PyTorch models into XLA HLO text workloads.
 
+The exporter now creates sample inputs on the host first and only then moves them
+to XLA. This avoids accidentally capturing random input generation ops such as
+`rng-bit-generator` into the emitted HLO.
+
 ## What you get
 
 - `pt2hlo.py`: main CLI.
 - `examples/simple_mlp.py`: runnable example model module.
+- `examples/attention_core64.py`: real attention-core example aligned with `ATTN_TILE64`.
+- `examples/qkv_dse_attention.py`: backend-friendly LLM-style attention skeleton.
 - `requirements.txt`: Python package hints.
 
 ## Requirements
@@ -138,3 +144,83 @@ python pt2hlo.py \
 ```
 
 If unsupported ops appear, the script prints their names and line numbers in the generated HLO.
+It also prints compatibility hints for common sources such as:
+
+- device-side random input generation
+- `LayerNorm` lowering
+- `GELU` lowering
+- numerically stable softmax lowering
+
+## Backend-friendly LLM-style workload
+
+If you want a PyTorch example that is intentionally shaped to stay close to the
+current `QKV_DSE` ISA, use `examples/qkv_dse_attention.py`.
+
+```bash
+python pt2hlo.py \
+  --model-file examples/qkv_dse_attention.py \
+  --model-entry build_model \
+  --input "512,64:float32" \
+  --isa-profile qkv_dse \
+  --strict-ops \
+  --output-dir out_qkv_dse_attention
+```
+
+This example avoids:
+
+- `LayerNorm`
+- `GELU`
+- numerically stabilized softmax
+- head split/merge transpose chains
+
+## Attention core for PyTorch -> HLO -> ACT
+
+If you want the cleanest end-to-end path from PyTorch into an ACT workload,
+use `examples/attention_core64.py`.
+
+This example is a real attention core with three inputs:
+
+- `q`: `[64,64]`
+- `k`: `[64,64]`
+- `v`: `[64,64]`
+
+and computes:
+
+`softmax(q @ k^T) @ v`
+
+It intentionally uses a manual `exp / sum / divide` softmax instead of
+`torch.softmax(...)` so the exported HLO stays close to the current ACT
+reference workload in `../workloads/attention_tile64_workable.hlo`.
+
+Example:
+
+```bash
+python pt2hlo.py \
+  --model-file examples/attention_core64.py \
+  --model-entry build_model \
+  --input "64,64:bfloat16" \
+  --input "64,64:bfloat16" \
+  --input "64,64:bfloat16" \
+  --isa-profile attn_tile64 \
+  --strict-ops \
+  --output-dir out_attention_core64
+```
+
+If you want the strongest check, validate against the known workable HLO
+instead of only the built-in profile:
+
+```bash
+python pt2hlo.py \
+  --model-file examples/attention_core64.py \
+  --model-entry build_model \
+  --input "64,64:bfloat16" \
+  --input "64,64:bfloat16" \
+  --input "64,64:bfloat16" \
+  --allow-ops-from-hlo ../workloads/attention_tile64_workable.hlo \
+  --strict-ops \
+  --output-dir out_attention_core64_checked
+```
+
+This is the intended minimal path when the goal is:
+
+`PyTorch -> HLO -> ACT backend`

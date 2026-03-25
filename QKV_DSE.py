@@ -26,6 +26,7 @@ ENTRY load_rm {
     ROOT %Out0 = bf16[`@c.n`,64] bitcast_convert(%a);
 }
 """
+
 )
 
 

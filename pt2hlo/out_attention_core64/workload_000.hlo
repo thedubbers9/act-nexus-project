@@ -1,0 +1,24 @@
+HloModule IrToHlo.20, entry_computation_layout={(bf16[64,64]{1,0}, bf16[64,64]{1,0}, bf16[64,64]{1,0})->bf16[64,64]{1,0}}
+
+%AddComputation.9 (x.10: bf16[], y.11: bf16[]) -> bf16[] {
+  %x.10 = bf16[] parameter(0)
+  %y.11 = bf16[] parameter(1)
+  ROOT %add.12 = bf16[] add(bf16[] %x.10, bf16[] %y.11)
+}
+
+ENTRY %IrToHlo.20 (p0.1: bf16[64,64], p1.2: bf16[64,64], p2.4: bf16[64,64]) -> bf16[64,64] {
+  %constant.8 = s32[] constant(64)
+  %p2.4 = bf16[64,64]{1,0} parameter(2)
+  %p1.2 = bf16[64,64]{1,0} parameter(1)
+  %transpose.3 = bf16[64,64]{0,1} transpose(bf16[64,64]{1,0} %p1.2), dimensions={1,0}
+  %dot.5 = bf16[64,64]{1,0} dot(bf16[64,64]{1,0} %p2.4, bf16[64,64]{0,1} %transpose.3), lhs_contracting_dims={1}, rhs_contracting_dims={0}
+  %exponential.6 = bf16[64,64]{1,0} exponential(bf16[64,64]{1,0} %dot.5)
+  %constant.7 = bf16[] constant(0)
+  %reduce.13 = bf16[64]{0} reduce(bf16[64,64]{1,0} %exponential.6, bf16[] %constant.7), dimensions={1}, to_apply=%AddComputation.9
+  %reshape.14 = bf16[64,1]{1,0} reshape(bf16[64]{0} %reduce.13)
+  %reshape.15 = bf16[64]{0} reshape(bf16[64,1]{1,0} %reshape.14)
+  %broadcast.16 = bf16[64,64]{1,0} broadcast(bf16[64]{0} %reshape.15), dimensions={0}
+  %divide.17 = bf16[64,64]{1,0} divide(bf16[64,64]{1,0} %exponential.6, bf16[64,64]{1,0} %broadcast.16)
+  %p0.1 = bf16[64,64]{1,0} parameter(0)
+  ROOT %dot.18 = bf16[64,64]{1,0} dot(bf16[64,64]{1,0} %divide.17, bf16[64,64]{1,0} %p0.1), lhs_contracting_dims={1}, rhs_contracting_dims={0}
+}

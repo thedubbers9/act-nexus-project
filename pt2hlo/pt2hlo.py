@@ -40,7 +40,22 @@ DEFAULT_ISA_PROFILES = {
         "module",
         "parameter",
         "reduce",
-    }
+    },
+    # Attention-core profile aligned with the ATTN_TILE64 reference workload.
+    "attn_tile64": {
+        "add",
+        "broadcast",
+        "constant",
+        "divide",
+        "dot",
+        "entry",
+        "exponential",
+        "module",
+        "parameter",
+        "reduce",
+        "reshape",
+        "transpose",
+    },
 }
 
 HLO_OP_RE = re.compile(r"=\s*[^=]*?\b([a-z][a-z0-9\-]*)\(")
@@ -91,12 +106,12 @@ def _parse_input_spec(spec: str) -> Tuple[Tuple[int, ...], torch.dtype]:
         ) from exc
 
 
-def _tensor_from_spec(shape: Sequence[int], dtype: torch.dtype, device: torch.device) -> torch.Tensor:
+def _tensor_from_spec(shape: Sequence[int], dtype: torch.dtype) -> torch.Tensor:
     if dtype == torch.bool:
-        return torch.randint(0, 2, shape, device=device, dtype=torch.int32).to(torch.bool)
+        return torch.randint(0, 2, shape, dtype=torch.int32).to(torch.bool)
     if dtype in (torch.int8, torch.int16, torch.int32, torch.int64, torch.uint8):
-        return torch.randint(0, 8, shape, device=device, dtype=dtype)
-    return torch.randn(shape, device=device, dtype=dtype)
+        return torch.randint(0, 8, shape, dtype=dtype)
+    return torch.randn(shape, dtype=dtype)
 
 
 def _flatten_tensors(obj: Any) -> List[torch.Tensor]:
@@ -166,6 +181,115 @@ def _load_allowed_ops(
     return allowed
 
 
+def _compatibility_hints(unsupported_ops: Sequence[str]) -> List[str]:
+    ops = set(unsupported_ops)
+    hints: List[str] = []
+
+    rng_ops = {
+        "rng-bit-generator",
+        "shift-right-logical",
+        "sine",
+        "cosine",
+        "log",
+        "sqrt",
+        "slice",
+        "concatenate",
+        "convert",
+    }
+    if ops & rng_ops:
+        hints.append(
+            "device-side random input generation is being captured into HLO; build sample inputs on CPU and move them to XLA only after creation"
+        )
+
+    if {"batch-norm-training", "rsqrt", "get-tuple-element"} & ops:
+        hints.append(
+            "LayerNorm is lowering into a batch-norm-style subgraph that QKV_DSE does not currently pattern-match"
+        )
+
+    if "erf" in ops:
+        hints.append("GELU in the FFN lowers to an erf-based approximation, which is outside the current backend ISA patterns")
+
+    if {"maximum", "subtract", "exponential", "divide"} <= ops:
+        hints.append(
+            "softmax is lowering to a numerically-stable max-subtract-exp-divide form, while the current backend only advertises exp-reduce-divide softmax"
+        )
+
+    if {"transpose", "reshape"} & ops:
+        hints.append(
+            "attention head split/merge introduces reshape/transpose chains; the backend only supports a narrow subset used by its load/store patterns"
+        )
+
+    return hints
+
+
+def _normalize_hlo_for_act(hlo_text: str) -> str:
+    """Normalize exporter artifacts into ACT-friendlier HLO text.
+
+    Today this unwraps single-output tuple roots that XLA emits even when the
+    model returns exactly one tensor. ACT workload files in this repo use a
+    plain tensor return, so we rewrite the tuple wrapper away and retag the
+    producing instruction as the ROOT op.
+    """
+    lines = hlo_text.splitlines()
+
+    root_idx = None
+    root_tuple_match = None
+    root_tuple_re = re.compile(
+        r"^(\s*)ROOT\s+(%[A-Za-z0-9_.-]+)\s*=\s*\(([^()]+)\)\s+tuple\(([^%]+)\s+(%[A-Za-z0-9_.-]+)\)\s*$"
+    )
+    for idx, line in enumerate(lines):
+        match = root_tuple_re.match(line)
+        if match is not None:
+            root_idx = idx
+            root_tuple_match = match
+            break
+
+    if root_tuple_match is None:
+        return hlo_text
+
+    tuple_type = root_tuple_match.group(3).strip()
+    element_type = root_tuple_match.group(4).strip()
+    producer_name = root_tuple_match.group(5)
+    if tuple_type != element_type:
+        return hlo_text
+
+    producer_re = re.compile(
+        rf"^(\s*){re.escape(producer_name)}(\s*=.*)$"
+    )
+    producer_idx = None
+    for idx, line in enumerate(lines):
+        if idx == root_idx:
+            continue
+        if producer_re.match(line):
+            producer_idx = idx
+            break
+
+    if producer_idx is None:
+        return hlo_text
+
+    producer_match = producer_re.match(lines[producer_idx])
+    lines[producer_idx] = (
+        f"{producer_match.group(1)}ROOT {producer_name}{producer_match.group(2)}"
+    )
+    del lines[root_idx]
+
+    normalized = "\n".join(lines)
+    normalized = re.sub(
+        r"(entry_computation_layout=\{.*?->)\(([^()]+)\)(\})",
+        r"\1\2\3",
+        normalized,
+        count=1,
+    )
+    normalized = re.sub(
+        r"^(ENTRY\s+%?[^\s]+\s*\(.*?\)\s*->)\s*\(([^()]+)\)(\s*\{)\s*$",
+        r"\1 \2\3",
+        normalized,
+        count=1,
+        flags=re.MULTILINE,
+    )
+    return normalized
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Export PyTorch model invocations to HLO text.")
     parser.add_argument("--model-file", required=True, help="Python file containing your model entry.")
@@ -232,7 +356,9 @@ def main() -> None:
 
     for idx, workload_specs in enumerate(workloads):
         parsed = [_parse_input_spec(s) for s in workload_specs]
-        model_inputs = [_tensor_from_spec(shape, dtype, device) for shape, dtype in parsed]
+        # Build sample tensors on the host first. If we create them directly on the
+        # XLA device, random initialization itself becomes part of the exported HLO.
+        model_inputs = [_tensor_from_spec(shape, dtype).to(device) for shape, dtype in parsed]
 
         with torch.no_grad():
             outputs = model(*model_inputs)
@@ -241,6 +367,7 @@ def main() -> None:
                 raise RuntimeError("Model produced no tensor outputs to export.")
 
             hlo_text = torch_xla._XLAC._get_xla_tensors_hlo(output_tensors)
+            hlo_text = _normalize_hlo_for_act(hlo_text)
 
         if allowed_ops:
             found = _extract_ops_with_lines(hlo_text)
@@ -254,6 +381,8 @@ def main() -> None:
                     print(f"       line {ln}: {op}")
                 if len(unsupported) > 25:
                     print(f"       ... and {len(unsupported) - 25} more occurrences")
+                for hint in _compatibility_hints(uniq):
+                    print(f"       hint: {hint}")
                 if args.strict_ops:
                     raise RuntimeError(
                         f"Unsupported HLO ops found for workload_{idx:03d}; see warnings above."

@@ -34,6 +34,8 @@ ENTRY load_rm {
 }
 """)
 
+
+
 instr = qkv.add_instruction("load_cm", ["n"], ["addr_in", "addr_out"])
 instr.set_inputs([["d0", ["@a.addr_in"], ["@c.n * 128"]]])
 instr.set_outputs([["d1", ["@a.addr_out"], ["@c.n"]]])
@@ -92,6 +94,10 @@ ENTRY gemm {
     ROOT %Out0 = bf16[64,64] dot(%In1, %In2), lhs_contracting_dims={1}, rhs_contracting_dims={0};
 }
 """)
+
+
+
+
 
 instr = qkv.add_instruction("softmax", ["n"], ["addr"])
 instr.set_inputs([["d2", ["@a.addr"], ["@c.n"]]])

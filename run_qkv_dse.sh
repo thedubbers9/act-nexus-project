@@ -5,9 +5,9 @@ set -euo pipefail
 #   BACKEND_BIN=./backends/QKV ./run_qkv_dse.sh
 #   INPUT_HLO=my_input.hlo OUTPUT_PY=asm/out.py ./run_qkv_dse.sh
 BACKEND_BIN="${BACKEND_BIN:-./backends/QKV_DSE}"
-INPUT_HLO="${INPUT_HLO:-workloads/llm_compute_bound_large_workable.hlo}"
-OUTPUT_PY="${OUTPUT_PY:-asm/compiled_qkv.py}"
-LOG_DIR="${LOG_DIR:-log/qkv_compile}"
+INPUT_HLO="${INPUT_HLO:-workloads/llm_mem_bound.hlo}"
+OUTPUT_PY="${OUTPUT_PY:-asm/compiled_llm_mem_bound.py}"
+LOG_DIR="${LOG_DIR:-log/compiled_llm_mem_bound}"
 DSE_HW_CONFIG="${DSE_HW_CONFIG:-dse/config/config.yaml}"
 DSE_TARGETS="${DSE_TARGETS:-dse/config/targets.yaml}"
 DSE_OUT="${DSE_OUT:-dse/output}"

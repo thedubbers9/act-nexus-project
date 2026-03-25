@@ -1,0 +1,95 @@
+{
+  "hardware_profile": {
+    "name": "toy_npu_mvp_v1",
+    "description": "MVP tensor-accelerator profile focused on dense tensor compute, vector compute, reduction, special math, and contiguous movement.",
+    "technology_node_nm": 130,
+    "clock_ghz": 0.1,
+    "notes": "This MVP keeps only the hardware classes needed for the current ACT/TAIDL workloads. input_literal and logical_view remain as non-physical bookkeeping classes. Values are analytical placeholders until calibrated from RTL runs."
+  },
+  "bytes_per_dtype": {
+    "u8": 1,
+    "bf16": 2,
+    "f16": 2,
+    "f32": 4,
+    "s8": 1,
+    "s32": 4,
+    "u32": 4
+  },
+  "abstraction_classes": {
+    "input_literal": {
+      "resource_class": "host_or_hbm_interface",
+      "implementation": "hbm_controller_or_constant_rom",
+      "unit_count": 0,
+      "area_per_unit_mm2": 0.0,
+      "energy_per_op_pj": 0.0,
+      "energy_per_byte_pj": 0.0
+    },
+    "logical_view": {
+      "resource_class": "non_materialized_layout",
+      "implementation": "compiler_managed_view_no_dedicated_ip",
+      "unit_count": 0,
+      "area_per_unit_mm2": 0.0,
+      "energy_per_op_pj": 0.0,
+      "energy_per_byte_pj": 0.0,
+      "materialize_outputs": false
+    },
+    "contiguous_move": {
+      "resource_class": "scratchpad_dma",
+      "implementation": "axi_dma_or_2d_dma_engine",
+      "unit_count": 2,
+      "area_per_unit_mm2": 0.18,
+      "energy_per_op_pj": 0.0,
+      "energy_per_byte_pj": 0.08,
+      "bandwidth_bytes_per_cycle": 512,
+      "calibration_target": "atfox272/dma"
+    },
+    "tensor_compute": {
+      "resource_class": "matrix_engine",
+      "implementation": "nvdla_cmac_or_small_systolic_array",
+      "unit_count": 1,
+      "area_per_unit_mm2": 3.20,
+      "energy_per_op_pj": 0.35,
+      "energy_per_byte_pj": 0.015,
+      "throughput_ops_per_cycle": 8192,
+      "calibration_target": "NV_NVDLA_cmac"
+    },
+    "vector_compute": {
+      "resource_class": "vector_engine",
+      "implementation": "simd_alu_cluster",
+      "unit_count": 1,
+      "area_per_unit_mm2": 0.55,
+      "energy_per_op_pj": 0.326,
+      "energy_per_byte_pj": 0.015,
+      "throughput_ops_per_cycle": 256,
+      "calibration_target": "ADD_16b family"
+    },
+    "special_math": {
+      "resource_class": "vector_special_function_engine",
+      "implementation": "cordic_or_activation_pipeline",
+      "unit_count": 1,
+      "area_per_unit_mm2": 0.42,
+      "energy_per_op_pj": 0.90,
+      "energy_per_byte_pj": 0.015,
+      "throughput_ops_per_cycle": 64,
+      "calibration_target": "CORDIC RTL"
+    },
+    "reduction": {
+      "resource_class": "reduction_engine",
+      "implementation": "adder_tree_or_vector_reduce_tree",
+      "unit_count": 1,
+      "area_per_unit_mm2": 0.30,
+      "energy_per_op_pj": 0.18,
+      "energy_per_byte_pj": 0.015,
+      "throughput_ops_per_cycle": 128,
+      "calibration_target": "adder_tree RTL"
+    },
+    "uncategorized": {
+      "resource_class": "unmapped_engine",
+      "implementation": "requires_manual_mapping",
+      "unit_count": 0,
+      "area_per_unit_mm2": 0.0,
+      "energy_per_op_pj": 0.0,
+      "energy_per_byte_pj": 0.0
+    }
+  }
+}
