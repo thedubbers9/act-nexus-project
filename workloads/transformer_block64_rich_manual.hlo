@@ -1,0 +1,67 @@
+HloModule transformer_block64_rich_manual, entry_computation_layout={(bf16[64,64]{1,0}, bf16[64,64]{1,0}, bf16[64,64]{1,0}, bf16[64,64]{1,0}, bf16[64,64]{1,0}, bf16[64,64]{1,0}, bf16[64,64]{1,0}, bf16[64,64]{1,0})->bf16[64,64]{1,0}}
+
+%reduce_add (x: bf16[], y: bf16[]) -> bf16[] {
+  %x = bf16[] parameter(0)
+  %y = bf16[] parameter(1)
+  ROOT %sum = bf16[] add(%x, %y)
+}
+
+ENTRY main {
+  // Backend-safe long transformer-style workload using only:
+  // transpose, dot, exponential, reduce, broadcast, divide, add.
+  //
+  // Structure:
+  // 1. Q/K/V projections
+  // 2. Attention softmax + context
+  // 3. Output projection + residual
+  // 4. A second softmax-normalized mixing stage
+  // 5. Two more projections + final residual
+
+  %x = bf16[64,64] parameter(0)
+  %wq = bf16[64,64] parameter(1)
+  %wk = bf16[64,64] parameter(2)
+  %wv = bf16[64,64] parameter(3)
+  %wo = bf16[64,64] parameter(4)
+  %w1 = bf16[64,64] parameter(5)
+  %w2 = bf16[64,64] parameter(6)
+  %w3 = bf16[64,64] parameter(7)
+
+  // Attention projections
+  %q = bf16[64,64] dot(%x, %wq), lhs_contracting_dims={1}, rhs_contracting_dims={0}
+  %k = bf16[64,64] dot(%x, %wk), lhs_contracting_dims={1}, rhs_contracting_dims={0}
+  %v = bf16[64,64] dot(%x, %wv), lhs_contracting_dims={1}, rhs_contracting_dims={0}
+
+  // First attention stage
+  %k_t = bf16[64,64] transpose(%k), dimensions={1,0}
+  %scores1 = bf16[64,64] dot(%q, %k_t), lhs_contracting_dims={1}, rhs_contracting_dims={0}
+  %scores1_exp = bf16[64,64] exponential(%scores1)
+  %zero1 = bf16[] constant(0)
+  %sum1 = bf16[64] reduce(%scores1_exp, %zero1), dimensions={1}, to_apply=%reduce_add
+  %sum1_b = bf16[64,64] broadcast(%sum1), dimensions={0}
+  %probs1 = bf16[64,64] divide(%scores1_exp, %sum1_b)
+  %ctx1 = bf16[64,64] dot(%probs1, %v), lhs_contracting_dims={1}, rhs_contracting_dims={0}
+
+  // Output projection + residual
+  %attn_out = bf16[64,64] dot(%ctx1, %wo), lhs_contracting_dims={1}, rhs_contracting_dims={0}
+  %resid1 = bf16[64,64] add(%attn_out, %x)
+
+  // Second normalization/mixing stage to add more exp/reduce/divide work
+  %mix1 = bf16[64,64] dot(%resid1, %w1), lhs_contracting_dims={1}, rhs_contracting_dims={0}
+  %mix1_t = bf16[64,64] transpose(%mix1), dimensions={1,0}
+  %scores2 = bf16[64,64] dot(%resid1, %mix1_t), lhs_contracting_dims={1}, rhs_contracting_dims={0}
+  %scores2_exp = bf16[64,64] exponential(%scores2)
+  %zero2 = bf16[] constant(0)
+  %sum2 = bf16[64] reduce(%scores2_exp, %zero2), dimensions={1}, to_apply=%reduce_add
+  %sum2_b = bf16[64,64] broadcast(%sum2), dimensions={0}
+  %probs2 = bf16[64,64] divide(%scores2_exp, %sum2_b)
+  %ctx2 = bf16[64,64] dot(%probs2, %mix1), lhs_contracting_dims={1}, rhs_contracting_dims={0}
+
+  // Feed-forward-like projection chain
+  %ff1 = bf16[64,64] dot(%ctx2, %w2), lhs_contracting_dims={1}, rhs_contracting_dims={0}
+  %ff2 = bf16[64,64] dot(%ff1, %w3), lhs_contracting_dims={1}, rhs_contracting_dims={0}
+  %resid2 = bf16[64,64] add(%ff2, %resid1)
+
+  // Final projection to keep the workload longer and GEMM-rich, while still
+  // exposing non-GEMM ops through the two normalization stages above.
+  ROOT %out = bf16[64,64] dot(%resid2, %wo), lhs_contracting_dims={1}, rhs_contracting_dims={0}
+}

@@ -28,7 +28,8 @@ DTYPE_MAP = {
 }
 
 DEFAULT_ISA_PROFILES = {
-    # Conservative baseline aligned with the current ACT QKV workload examples.
+    # Baseline aligned with the current ACT QKV_DSE workloads plus a few
+    # metadata-style ops that commonly appear in PyTorch->HLO export.
     "qkv_dse": {
         "add",
         "broadcast",
@@ -37,9 +38,13 @@ DEFAULT_ISA_PROFILES = {
         "dot",
         "entry",
         "exponential",
+        "softmax",
+        "multiply",
         "module",
         "parameter",
         "reduce",
+        "reshape",
+        "transpose",
     },
     # Attention-core profile aligned with the ATTN_TILE64 reference workload.
     "attn_tile64": {
@@ -287,6 +292,96 @@ def _normalize_hlo_for_act(hlo_text: str) -> str:
         count=1,
         flags=re.MULTILINE,
     )
+
+    # Fold away identity patterns of the form:
+    #   %c = bf16[] constant(1)
+    #   %b = bf16[... ] broadcast(%c), dimensions={}
+    #   %m = bf16[...] multiply(%x, %b)
+    # which sometimes appear in PyTorch/XLA export even when the model only
+    # wanted a plain residual passthrough.
+    normalized_lines = normalized.splitlines()
+    scalar_one_constants = set()
+    broadcast_of_one = set()
+    multiply_aliases = {}
+
+    constant_one_re = re.compile(
+        r"^\s*(%[A-Za-z0-9_.-]+)\s*=\s*[A-Za-z0-9]+\[\]\s+constant\((?:1|1\.0)\)\s*$"
+    )
+    broadcast_re = re.compile(
+        r"^\s*(%[A-Za-z0-9_.-]+)\s*=\s*.+\s+broadcast\(.+\s+(%[A-Za-z0-9_.-]+)\),\s*dimensions=\{\}\s*$"
+    )
+    multiply_re = re.compile(
+        r"^\s*(%[A-Za-z0-9_.-]+)\s*=\s*.+\s+multiply\((.+)\)\s*$"
+    )
+
+    def _split_top_level_commas_py(text: str) -> list[str]:
+        parts = []
+        start = 0
+        bracket_depth = 0
+        brace_depth = 0
+        paren_depth = 0
+        for i, ch in enumerate(text):
+            if ch == "[":
+                bracket_depth += 1
+            elif ch == "]":
+                bracket_depth -= 1
+            elif ch == "{":
+                brace_depth += 1
+            elif ch == "}":
+                brace_depth -= 1
+            elif ch == "(":
+                paren_depth += 1
+            elif ch == ")":
+                paren_depth -= 1
+            elif ch == "," and bracket_depth == 0 and brace_depth == 0 and paren_depth == 0:
+                piece = text[start:i].strip()
+                if piece:
+                    parts.append(piece)
+                start = i + 1
+        tail = text[start:].strip()
+        if tail:
+            parts.append(tail)
+        return parts
+
+    for line in normalized_lines:
+        match = constant_one_re.match(line)
+        if match:
+            scalar_one_constants.add(match.group(1))
+
+    for line in normalized_lines:
+        match = broadcast_re.match(line)
+        if match and match.group(2) in scalar_one_constants:
+            broadcast_of_one.add(match.group(1))
+
+    for line in normalized_lines:
+        match = multiply_re.match(line)
+        if not match:
+            continue
+        lhs = match.group(1)
+        operands = _split_top_level_commas_py(match.group(2))
+        if len(operands) != 2:
+            continue
+
+        def _symbol_from_operand(operand: str) -> str:
+            return operand.split()[-1].strip()
+
+        op0 = _symbol_from_operand(operands[0])
+        op1 = _symbol_from_operand(operands[1])
+        if op0 in broadcast_of_one and op1 not in broadcast_of_one:
+            multiply_aliases[lhs] = op1
+        elif op1 in broadcast_of_one and op0 not in broadcast_of_one:
+            multiply_aliases[lhs] = op0
+
+    if multiply_aliases:
+        rewritten = []
+        for line in normalized_lines:
+            if any(re.match(rf"^\s*{re.escape(alias)}\s*=", line) for alias in multiply_aliases):
+                continue
+            for alias, target in multiply_aliases.items():
+                line = line.replace(alias, target)
+            rewritten.append(line)
+        normalized = "\n".join(rewritten)
+
     return normalized
 
 

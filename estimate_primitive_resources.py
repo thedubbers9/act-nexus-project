@@ -148,6 +148,15 @@ def _sub_terms(lhs, rhs):
     return f"({lhs}) - ({rhs})"
 
 
+def _div_terms(lhs, rhs):
+    if lhs in ("0", 0, 0.0, None, ""):
+        return "0"
+    if rhs in ("", None, 0, 0.0, "0"):
+        return None
+    rhs_text = _fmt_num(rhs) if isinstance(rhs, (int, float)) else str(rhs)
+    return f"({lhs}) / ({rhs_text})"
+
+
 def _shape_elements(shape):
     if not shape:
         return "1"
@@ -160,6 +169,17 @@ def _bytes_formula(shape, bytes_per_elem):
 
 def _class_cfg(hw_cfg, abstraction_class):
     return (hw_cfg.get("abstraction_classes") or {}).get(abstraction_class, {})
+
+
+def _profile_clock_mhz(hw_cfg):
+    profile = hw_cfg.get("hardware_profile") or {}
+    clock_ghz = profile.get("clock_ghz")
+    if clock_ghz in ("", None):
+        return None
+    try:
+        return float(clock_ghz) * 1000.0
+    except Exception:
+        return None
 
 
 def _node_map(nodes):
@@ -189,24 +209,27 @@ _LEGACY_OP_TO_ABSTRACTION = {
     "ewise_exp": "special_math",
     "reduce_sum": "reduction",
     "reduce_generic": "reduction",
-    "ewise_div": "vector_compute",
-    "ewise_add": "vector_compute",
-    "ewise_sub": "vector_compute",
-    "ewise_mul": "vector_compute",
-    "ewise_max": "vector_compute",
-    "ewise_min": "vector_compute",
-    "ewise_xor": "vector_compute",
+    "ewise_div": "vector_compute_div",
+    "ewise_add": "vector_compute_add",
+    "ewise_sub": "vector_compute_add",
+    "ewise_mul": "vector_compute_mul",
+    "ewise_max": "vector_compute_add",
+    "ewise_min": "vector_compute_add",
+    "ewise_xor": "vector_compute_add",
     "select_lt": "predication_select",
     "select_eq_var": "predication_select",
 }
 
 
 def _node_abstraction(node):
-    if node.get("abstraction_class"):
-        return node["abstraction_class"]
+    abstraction = node.get("abstraction_class")
     op = node.get("op", "")
+    if abstraction and abstraction != "vector_compute":
+        return abstraction
     if op in _LEGACY_OP_TO_ABSTRACTION:
         return _LEGACY_OP_TO_ABSTRACTION[op]
+    if abstraction:
+        return abstraction
     return node.get("resource_class", "uncategorized")
 
 
@@ -286,9 +309,26 @@ def _estimate_node(node, node_lookup, hw_cfg):
         write_bytes = _bytes_formula(c_shape, bytes_per_elem)
 
     energy_terms = []
+    dynamic_power_mw = cfg.get("dynamic_power_mw")
+    effective_ops_per_cycle = cfg.get("effective_ops_per_cycle")
+    clock_mhz = cfg.get("clock_mhz", _profile_clock_mhz(hw_cfg))
+    used_dynamic_compute = False
+
+    if (
+        dynamic_power_mw not in (None, "", 0, 0.0, "0")
+        and effective_ops_per_cycle not in (None, "", 0, 0.0, "0")
+        and clock_mhz not in (None, "", 0, 0.0, "0")
+        and compute_ops not in ("0", 0, 0.0, None, "")
+    ):
+        dynamic_energy_per_cycle_pj = 1000.0 * float(dynamic_power_mw) / float(clock_mhz)
+        active_cycles = _div_terms(compute_ops, effective_ops_per_cycle)
+        if active_cycles:
+            energy_terms.append(_mul_terms([dynamic_energy_per_cycle_pj, active_cycles]))
+            used_dynamic_compute = True
+
     energy_per_op = cfg.get("energy_per_op_pj")
     energy_per_byte = cfg.get("energy_per_byte_pj")
-    if energy_per_op not in (None, 0, 0.0, "0"):
+    if not used_dynamic_compute and energy_per_op not in (None, 0, 0.0, "0"):
         energy_terms.append(_mul_terms([compute_ops, energy_per_op]))
     moved_total = _add_terms([read_bytes, write_bytes])
     if energy_per_byte not in (None, 0, 0.0, "0"):
@@ -389,7 +429,40 @@ def _collect_instruction_summaries(nodes_by_instruction, hw_cfg):
             "implementations_used": list(implementations.keys()),
         }
 
+    _apply_instruction_overrides(summaries, hw_cfg)
     return summaries
+
+
+def _apply_instruction_overrides(summaries, hw_cfg):
+    """Correct ISA-level movement instructions that decompose into metadata-heavy primitives."""
+    move_cfg = _class_cfg(hw_cfg, "contiguous_move")
+    if not move_cfg:
+        return
+
+    move_read = _mul_terms([2, 64, "@c.n"])
+    move_write = _mul_terms([2, 64, "@c.n"])
+    total_move = _add_terms([move_read, move_write])
+    move_energy = _mul_terms([total_move, move_cfg.get("energy_per_byte_pj", 0.0)])
+    move_area = move_cfg.get("unit_count", 0) * move_cfg.get("area_per_unit_mm2", 0.0)
+    move_resource = move_cfg.get("resource_class", "contiguous_move")
+    move_impl = move_cfg.get("implementation", "contiguous_move")
+
+    for instruction in ("load_rm", "load_cm", "store_rm", "store_cm", "mov", "mov_rev"):
+        if instruction not in summaries:
+            continue
+        summaries[instruction].update(
+            {
+                "compute_ops_formula": "0",
+                "read_bytes_formula": move_read,
+                "write_bytes_formula": move_write,
+                "energy_pj_formula": move_energy,
+                "energy_pj_if_numeric": _safe_eval_numeric(move_energy),
+                "configured_area_mm2": move_area,
+                "abstractions_used": ["contiguous_move"],
+                "resource_classes_used": [move_resource],
+                "implementations_used": [move_impl],
+            }
+        )
 
 
 def _write_summary_csv(nodes_by_instruction, hw_cfg, out_path: Path):

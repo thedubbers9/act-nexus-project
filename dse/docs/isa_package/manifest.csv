@@ -1,0 +1,7 @@
+file,type,purpose
+taidl_primitive_reference.csv,csv,Primitive-level TAIDL opcode/reference table
+taidl_xla_join_reference.csv,csv,Join table connecting TAIDL and XLA reference views
+xla_hlo_operation_reference.csv,csv,XLA HLO operation reference
+xla_taidl_hardware_class_view.csv,csv,Operations grouped by hardware abstraction class
+hardware_mapping_interface_spec.md,markdown,Written interface specification for hardware mapping
+hardware_mapping_interface_example.json,json,Concrete example of the hardware mapping interface

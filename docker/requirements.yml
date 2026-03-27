@@ -17,3 +17,5 @@ dependencies:
       - jax==0.4.33
       - antlr4-python3-runtime==4.9.2
       - nanobind==2.8.0
+      - torch
+      - torch-xla

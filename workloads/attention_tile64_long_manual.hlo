@@ -1,0 +1,48 @@
+HloModule attention_tile64_long_manual, entry_computation_layout={(bf16[64,64]{1,0}, bf16[64,64]{1,0}, bf16[64,64]{1,0}, bf16[64,64]{1,0}, bf16[64,64]{1,0}, bf16[64,64]{1,0})->bf16[64,64]{1,0}}
+
+%reduce_add (x: bf16[], y: bf16[]) -> bf16[] {
+  %x = bf16[] parameter(0)
+  %y = bf16[] parameter(1)
+  ROOT %sum = bf16[] add(%x, %y)
+}
+
+ENTRY main {
+  // A longer ATTN_TILE64-safe workload:
+  // stage1 = softmax(Q @ K^T) @ V
+  // stage2 = (stage1 @ P1) + R
+  // out    = softmax(stage2 @ P2) @ V
+  //
+  // This keeps to the compiler-safe subset:
+  // transpose, dot, exponential, reduce, broadcast, divide, add.
+
+  %q = bf16[64,64] parameter(0)
+  %k = bf16[64,64] parameter(1)
+  %v = bf16[64,64] parameter(2)
+  %p1 = bf16[64,64] parameter(3)
+  %p2 = bf16[64,64] parameter(4)
+  %r = bf16[64,64] parameter(5)
+
+  // First attention stage
+  %k_t = bf16[64,64] transpose(%k), dimensions={1,0}
+  %scores1 = bf16[64,64] dot(%q, %k_t), lhs_contracting_dims={1}, rhs_contracting_dims={0}
+  %scores1_exp = bf16[64,64] exponential(%scores1)
+  %zero1 = bf16[] constant(0)
+  %sum1 = bf16[64] reduce(%scores1_exp, %zero1), dimensions={1}, to_apply=%reduce_add
+  %sum1_b = bf16[64,64] broadcast(%sum1), dimensions={0}
+  %probs1 = bf16[64,64] divide(%scores1_exp, %sum1_b)
+  %ctx1 = bf16[64,64] dot(%probs1, %v), lhs_contracting_dims={1}, rhs_contracting_dims={0}
+
+  // Projection + residual
+  %proj1 = bf16[64,64] dot(%ctx1, %p1), lhs_contracting_dims={1}, rhs_contracting_dims={0}
+  %stage2 = bf16[64,64] add(%proj1, %r)
+
+  // Second attention-like normalization stage
+  %scores2 = bf16[64,64] dot(%stage2, %p2), lhs_contracting_dims={1}, rhs_contracting_dims={0}
+  %scores2_exp = bf16[64,64] exponential(%scores2)
+  %zero2 = bf16[] constant(0)
+  %sum2 = bf16[64] reduce(%scores2_exp, %zero2), dimensions={1}, to_apply=%reduce_add
+  %sum2_b = bf16[64,64] broadcast(%sum2), dimensions={0}
+  %probs2 = bf16[64,64] divide(%scores2_exp, %sum2_b)
+
+  ROOT %out = bf16[64,64] dot(%probs2, %v), lhs_contracting_dims={1}, rhs_contracting_dims={0}
+}

@@ -1,0 +1,30 @@
+HloModule IrToHlo.27, entry_computation_layout={(bf16[64,64]{1,0}, bf16[64,64]{1,0}, bf16[64,64]{1,0}, bf16[64,64]{1,0}, bf16[64,64]{1,0})->bf16[64,64]{1,0}}
+
+%AddComputation.12 (x.13: bf16[], y.14: bf16[]) -> bf16[] {
+  %x.13 = bf16[] parameter(0)
+  %y.14 = bf16[] parameter(1)
+  ROOT %add.15 = bf16[] add(bf16[] %x.13, bf16[] %y.14)
+}
+
+ENTRY %IrToHlo.27 (p0.2: bf16[64,64], p1.3: bf16[64,64], p2.4: bf16[64,64], p3.5: bf16[64,64], p4.7: bf16[64,64]) -> bf16[64,64] {
+  %constant.11 = s32[] constant(64)
+  %p4.7 = bf16[64,64]{1,0} parameter(4)
+  %p3.5 = bf16[64,64]{1,0} parameter(3)
+  %transpose.6 = bf16[64,64]{0,1} transpose(bf16[64,64]{1,0} %p3.5), dimensions={1,0}
+  %dot.8 = bf16[64,64]{1,0} dot(bf16[64,64]{1,0} %p4.7, bf16[64,64]{0,1} %transpose.6), lhs_contracting_dims={1}, rhs_contracting_dims={0}
+  %exponential.9 = bf16[64,64]{1,0} exponential(bf16[64,64]{1,0} %dot.8)
+  %constant.10 = bf16[] constant(0)
+  %reduce.16 = bf16[64]{0} reduce(bf16[64,64]{1,0} %exponential.9, bf16[] %constant.10), dimensions={1}, to_apply=%AddComputation.12
+  %reshape.17 = bf16[64,1]{1,0} reshape(bf16[64]{0} %reduce.16)
+  %reshape.18 = bf16[64]{0} reshape(bf16[64,1]{1,0} %reshape.17)
+  %broadcast.19 = bf16[64,64]{1,0} broadcast(bf16[64]{0} %reshape.18), dimensions={0}
+  %divide.20 = bf16[64,64]{1,0} divide(bf16[64,64]{1,0} %exponential.9, bf16[64,64]{1,0} %broadcast.19)
+  %p2.4 = bf16[64,64]{1,0} parameter(2)
+  %dot.21 = bf16[64,64]{1,0} dot(bf16[64,64]{1,0} %divide.20, bf16[64,64]{1,0} %p2.4), lhs_contracting_dims={1}, rhs_contracting_dims={0}
+  %p1.3 = bf16[64,64]{1,0} parameter(1)
+  %dot.22 = bf16[64,64]{1,0} dot(bf16[64,64]{1,0} %dot.21, bf16[64,64]{1,0} %p1.3), lhs_contracting_dims={1}, rhs_contracting_dims={0}
+  %p0.2 = bf16[64,64]{1,0} parameter(0)
+  %constant.1 = bf16[] constant(1)
+  %broadcast.23 = bf16[64,64]{1,0} broadcast(bf16[] %constant.1), dimensions={}
+  ROOT %add.25 = bf16[64,64]{1,0} add(bf16[64,64]{1,0} %dot.22, bf16[64,64]{1,0} %p0.2)
+}

@@ -54,3 +54,71 @@ parser and rewrite work, such as:
    - residual add
    - projection GEMMs
 4. After that, consider a v2 ISA with explicit norm support
+
+## Demo commands
+
+If you want the end-to-end ACT demo to use `ATTN_TILE64` instead of the older
+`QKV_DSE` path, use the `ATTN_TILE64` scripts directly.
+
+PyTorch to HLO:
+
+```bash
+cd /workspace
+bash run_pt2hlo_attn_tile64_demo.sh
+```
+
+Backend generation, primitive-cost refresh, HLO compile, and plots:
+
+```bash
+cd /workspace
+bash run_attn_tile64_from_hlo_demo.sh
+```
+
+Whole flow:
+
+```bash
+cd /workspace
+bash run_attn_tile64_pt2hlo_demo.sh
+```
+
+Outputs land in:
+
+- `pt2hlo/out_attention_core64`
+- `targets/ATTN_TILE64/backend`
+- `asm/attn_tile64_demo`
+- `demo_output/attn_tile64_demo`
+
+## Richer demo workload
+
+If you want a slightly more complex tile workload with a broader mix of
+instructions, use:
+
+- [attention_block64.py](/scratch/krish/MLIR-hardware-analysis/submodule/act/pt2hlo/examples/attention_block64.py)
+
+This computes:
+
+`softmax(Q @ K^T) @ V @ Proj + Residual`
+
+with all tensors shaped as `bf16[64,64]`.
+
+PyTorch to HLO:
+
+```bash
+cd /workspace
+MODEL_FILE=/workspace/pt2hlo/examples/attention_block64.py \
+PT2HLO_OUT=/workspace/pt2hlo/out_attention_block64 \
+WORKLOAD_SPECS="64,64:bfloat16;64,64:bfloat16;64,64:bfloat16;64,64:bfloat16;64,64:bfloat16" \
+bash run_pt2hlo_attn_tile64_demo.sh
+```
+
+Compile and plot:
+
+```bash
+cd /workspace
+PYTHON_BIN=/opt/miniconda/envs/act/bin/python3 \
+PT2HLO_OUT=/workspace/pt2hlo/out_attention_block64 \
+COMPILED_DIR=/workspace/asm/attn_tile64_block_demo \
+LOG_ROOT=/workspace/log/attn_tile64_block_demo \
+PLOT_OUT=/workspace/demo_output/attn_tile64_block_demo \
+bash run_attn_tile64_from_hlo_demo.sh
+```

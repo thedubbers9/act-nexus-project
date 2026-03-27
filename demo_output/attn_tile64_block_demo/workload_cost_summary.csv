@@ -1,0 +1,2 @@
+label,path,total_energy_pj,used_fallback,eltwise_add_energy_pj,gemm_energy_pj,load_cm_energy_pj,load_rm_energy_pj,mov_energy_pj,mov_rev_energy_pj,softmax_energy_pj,store_rm_energy_pj,eltwise_add_calls,gemm_calls,load_cm_calls,load_rm_calls,mov_calls,mov_rev_calls,softmax_calls,store_rm_calls
+demo_000,/workspace/asm/attn_tile64_block_demo/demo_000.py,9440749.979929596,False,1342.2592,9361851.5607552,7153.0960256,28612.3841024,21459.2880768,7153.0960256,6025.1997184,7153.0960256,1,3,1,4,3,1,1,1

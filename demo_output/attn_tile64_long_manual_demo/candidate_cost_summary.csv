@@ -1,0 +1,3 @@
+label,path,total_energy_pj,used_fallback,eltwise_add_energy_pj,gemm_energy_pj,load_cm_energy_pj,load_rm_energy_pj,mov_energy_pj,mov_rev_energy_pj,softmax_energy_pj,store_rm_energy_pj,eltwise_add_calls,gemm_calls,load_cm_calls,load_rm_calls,mov_calls,mov_rev_calls,softmax_calls,store_rm_calls
+0,/workspace/log/attn_tile64_long_manual_demo/0.py,16175148.602905594,False,1342.2592,15603085.934592001,7153.0960256,42918.57615359999,35765.480127999996,7153.0960256,470577.06475519994,7153.0960256,1,5,1,6,5,1,2,1
+1,/workspace/log/attn_tile64_long_manual_demo/1.py,16167995.506879995,False,1342.2592,15603085.934592001,7153.0960256,35765.480127999996,35765.480127999996,7153.0960256,470577.06475519994,7153.0960256,1,5,1,5,5,1,2,1

@@ -1,0 +1,51 @@
+HloModule transformer_block64_medium_manual, entry_computation_layout={(bf16[64,64]{1,0}, bf16[64,64]{1,0}, bf16[64,64]{1,0}, bf16[64,64]{1,0}, bf16[64,64]{1,0}, bf16[64,64]{1,0}, bf16[64,64]{1,0})->bf16[64,64]{1,0}}
+
+%reduce_add (x: bf16[], y: bf16[]) -> bf16[] {
+  %x = bf16[] parameter(0)
+  %y = bf16[] parameter(1)
+  ROOT %sum = bf16[] add(%x, %y)
+}
+
+ENTRY main {
+  // Medium-complexity transformer-style block that stays extractor-friendly.
+  // Mix: 5 GEMMs, 2 softmax-style normalization stages, 2 residual adds.
+
+  %x = bf16[64,64] parameter(0)
+  %wq = bf16[64,64] parameter(1)
+  %wk = bf16[64,64] parameter(2)
+  %wv = bf16[64,64] parameter(3)
+  %wo = bf16[64,64] parameter(4)
+  %w1 = bf16[64,64] parameter(5)
+  %w2 = bf16[64,64] parameter(6)
+
+  // Attention projections
+  %q = bf16[64,64] dot(%x, %wq), lhs_contracting_dims={1}, rhs_contracting_dims={0}
+  %k = bf16[64,64] dot(%x, %wk), lhs_contracting_dims={1}, rhs_contracting_dims={0}
+  %v = bf16[64,64] dot(%x, %wv), lhs_contracting_dims={1}, rhs_contracting_dims={0}
+
+  // First attention stage
+  %k_t = bf16[64,64] transpose(%k), dimensions={1,0}
+  %scores1 = bf16[64,64] dot(%q, %k_t), lhs_contracting_dims={1}, rhs_contracting_dims={0}
+  %scores1_exp = bf16[64,64] exponential(%scores1)
+  %zero1 = bf16[] constant(0)
+  %sum1 = bf16[64] reduce(%scores1_exp, %zero1), dimensions={1}, to_apply=%reduce_add
+  %sum1_b = bf16[64,64] broadcast(%sum1), dimensions={0}
+  %probs1 = bf16[64,64] divide(%scores1_exp, %sum1_b)
+  %ctx1 = bf16[64,64] dot(%probs1, %v), lhs_contracting_dims={1}, rhs_contracting_dims={0}
+
+  // Output projection + residual
+  %proj1 = bf16[64,64] dot(%ctx1, %wo), lhs_contracting_dims={1}, rhs_contracting_dims={0}
+  %resid1 = bf16[64,64] add(%proj1, %x)
+
+  // Second normalization stage over a projected representation
+  %mix = bf16[64,64] dot(%resid1, %w1), lhs_contracting_dims={1}, rhs_contracting_dims={0}
+  %mix_exp = bf16[64,64] exponential(%mix)
+  %zero2 = bf16[] constant(0)
+  %sum2 = bf16[64] reduce(%mix_exp, %zero2), dimensions={1}, to_apply=%reduce_add
+  %sum2_b = bf16[64,64] broadcast(%sum2), dimensions={0}
+  %norm2 = bf16[64,64] divide(%mix_exp, %sum2_b)
+
+  // Final projection + residual
+  %proj2 = bf16[64,64] dot(%norm2, %w2), lhs_contracting_dims={1}, rhs_contracting_dims={0}
+  ROOT %out = bf16[64,64] add(%proj2, %resid1)
+}

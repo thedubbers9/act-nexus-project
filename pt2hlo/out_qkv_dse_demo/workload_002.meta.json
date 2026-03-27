@@ -1,0 +1,9 @@
+{
+  "model_file": "/workspace/pt2hlo/examples/qkv_dse_demo_block.py",
+  "model_entry": "build_model",
+  "workload_index": 2,
+  "inputs": [
+    "256,64:bfloat16"
+  ],
+  "output_hlo": "/workspace/pt2hlo/out_qkv_dse_demo/workload_002.hlo"
+}

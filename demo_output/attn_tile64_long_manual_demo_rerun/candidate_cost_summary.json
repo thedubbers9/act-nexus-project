@@ -1,0 +1,98 @@
+[
+  {
+    "label": "0",
+    "path": "/workspace/log/attn_tile64_long_manual_demo/0.py",
+    "total_energy_pj": 2733905.868313601,
+    "used_fallback": false,
+    "instruction_breakdown": {
+      "load_rm": {
+        "calls": 6,
+        "total_energy_pj": 42918.57615359999,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "load_cm": {
+        "calls": 1,
+        "total_energy_pj": 7153.0960256,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "gemm": {
+        "calls": 5,
+        "total_energy_pj": 2161843.2,
+        "formula": "421.875 * (8192 * @c.n) / (512) + 0.015 * (2 * 64 * @c.n + 8192 + 2 * 64 * @c.n)"
+      },
+      "softmax": {
+        "calls": 2,
+        "total_energy_pj": 470577.06475519994,
+        "formula": "3639.1005183999996 * (64 * @c.n) / (64) + 0.015 * (2 * 64 * @c.n + 2 * 64 * @c.n) + 0.18 * (64 * @c.n) - (@c.n) + 0.015 * (2 * 64 * @c.n + 2 * @c.n) + 15.2128 * (64 * @c.n) / (64) + 0.015 * (4 * 64 * @c.n + 2 * 64 * @c.n)"
+      },
+      "mov": {
+        "calls": 5,
+        "total_energy_pj": 35765.480127999996,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "mov_rev": {
+        "calls": 1,
+        "total_energy_pj": 7153.0960256,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "eltwise_add": {
+        "calls": 1,
+        "total_energy_pj": 1342.2592,
+        "formula": "15.2128 * (64 * @c.n) / (64) + 0.015 * (4 * 64 * @c.n + 2 * 64 * @c.n)"
+      },
+      "store_rm": {
+        "calls": 1,
+        "total_energy_pj": 7153.0960256,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      }
+    }
+  },
+  {
+    "label": "1",
+    "path": "/workspace/log/attn_tile64_long_manual_demo/1.py",
+    "total_energy_pj": 2726752.7722880007,
+    "used_fallback": false,
+    "instruction_breakdown": {
+      "load_rm": {
+        "calls": 5,
+        "total_energy_pj": 35765.480127999996,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "load_cm": {
+        "calls": 1,
+        "total_energy_pj": 7153.0960256,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "gemm": {
+        "calls": 5,
+        "total_energy_pj": 2161843.2,
+        "formula": "421.875 * (8192 * @c.n) / (512) + 0.015 * (2 * 64 * @c.n + 8192 + 2 * 64 * @c.n)"
+      },
+      "softmax": {
+        "calls": 2,
+        "total_energy_pj": 470577.06475519994,
+        "formula": "3639.1005183999996 * (64 * @c.n) / (64) + 0.015 * (2 * 64 * @c.n + 2 * 64 * @c.n) + 0.18 * (64 * @c.n) - (@c.n) + 0.015 * (2 * 64 * @c.n + 2 * @c.n) + 15.2128 * (64 * @c.n) / (64) + 0.015 * (4 * 64 * @c.n + 2 * 64 * @c.n)"
+      },
+      "mov": {
+        "calls": 5,
+        "total_energy_pj": 35765.480127999996,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "mov_rev": {
+        "calls": 1,
+        "total_energy_pj": 7153.0960256,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "eltwise_add": {
+        "calls": 1,
+        "total_energy_pj": 1342.2592,
+        "formula": "15.2128 * (64 * @c.n) / (64) + 0.015 * (4 * 64 * @c.n + 2 * 64 * @c.n)"
+      },
+      "store_rm": {
+        "calls": 1,
+        "total_energy_pj": 7153.0960256,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      }
+    }
+  }
+]

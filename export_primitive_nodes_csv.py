@@ -52,25 +52,26 @@ _LEGACY_OP_TO_ABSTRACTION = {
     "ewise_exp": "special_math",
     "reduce_sum": "reduction",
     "reduce_generic": "reduction",
-    "ewise_div": "vector_compute",
-    "ewise_add": "vector_compute",
-    "ewise_sub": "vector_compute",
-    "ewise_mul": "vector_compute",
-    "ewise_max": "vector_compute",
-    "ewise_min": "vector_compute",
-    "ewise_xor": "vector_compute",
+    "ewise_div": "vector_compute_div",
+    "ewise_add": "vector_compute_add",
+    "ewise_sub": "vector_compute_add",
+    "ewise_mul": "vector_compute_mul",
+    "ewise_max": "vector_compute_add",
+    "ewise_min": "vector_compute_add",
+    "ewise_xor": "vector_compute_add",
     "select_lt": "predication_select",
     "select_eq_var": "predication_select",
 }
 
 
 def _node_abstraction(node: dict) -> str:
-    if node.get("abstraction_class"):
-        return node["abstraction_class"]
+    abstraction = node.get("abstraction_class")
     op = node.get("op", "")
+    if abstraction and abstraction != "vector_compute":
+        return abstraction
     if op in _LEGACY_OP_TO_ABSTRACTION:
         return _LEGACY_OP_TO_ABSTRACTION[op]
-    return node.get("resource_class", "")
+    return abstraction or node.get("resource_class", "")
 
 
 def _write_detail_csv(nodes_by_instruction: dict, out_path: Path) -> None:

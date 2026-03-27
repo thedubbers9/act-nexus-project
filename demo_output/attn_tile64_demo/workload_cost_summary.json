@@ -1,0 +1,40 @@
+[
+  {
+    "label": "demo_000",
+    "path": "/workspace/asm/attn_tile64_demo/demo_000.py",
+    "total_energy_pj": 381675.6991999999,
+    "used_fallback": false,
+    "instruction_breakdown": {
+      "load_rm": {
+        "calls": 2,
+        "total_energy_pj": 2621.44,
+        "formula": "0.08 * (128 * @c.n + 128 * @c.n)"
+      },
+      "load_cm": {
+        "calls": 1,
+        "total_energy_pj": 1310.72,
+        "formula": "0.08 * (128 * @c.n + 128 * @c.n)"
+      },
+      "gemm": {
+        "calls": 2,
+        "total_energy_pj": 367738.88,
+        "formula": "0.35 * 8192 * @c.n + 0.015 * (2 * 64 * @c.n + 8192 + 2 * 64 * @c.n)"
+      },
+      "softmax": {
+        "calls": 1,
+        "total_energy_pj": 6072.4992,
+        "formula": "0.9 * 64 * @c.n + 0.015 * (2 * 64 * @c.n + 2 * 64 * @c.n) + 0.18 * (64 * @c.n) - (@c.n) + 0.015 * (2 * 64 * @c.n + 2 * @c.n) + 0.2377 * 64 * @c.n + 0.015 * (4 * 64 * @c.n + 2 * 64 * @c.n)"
+      },
+      "mov": {
+        "calls": 2,
+        "total_energy_pj": 2621.44,
+        "formula": "0.08 * (128 * @c.n + 128 * @c.n)"
+      },
+      "store_rm": {
+        "calls": 1,
+        "total_energy_pj": 1310.72,
+        "formula": "0.08 * (128 * @c.n + 128 * @c.n)"
+      }
+    }
+  }
+]

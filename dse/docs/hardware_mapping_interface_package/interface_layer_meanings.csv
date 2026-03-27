@@ -1,0 +1,8 @@
+interface_layer,what_it_is,input,output,edited_by,example,why_it_exists
+TAIDL instruction,Semantic accelerator instruction from the ISA,Program instruction,Semantic meaning,ISA designer,softmax or gemm,Separates what an instruction means from how hardware realizes it.
+Semantic primitive graph,Primitive decomposition of TAIDL semantics,TAIDL instruction,Primitive nodes and edges,Compiler or decomposition logic,"softmax -> exponential, reduce_add, broadcast, divide",Makes hardware mapping explicit and analyzable.
+Primitive fallback mapping,Default primitive-to-IP assignment rule,Primitive node,Hardware IP name,Hardware designer,dot -> systolic_array_ip,Gives every primitive a deterministic hardware home when no fusion matches.
+Fused pattern override,Optional higher-priority pattern matcher,Primitive subgraph,Hardware IP name,Hardware designer,"exponential + reduce_add + broadcast + divide -> softmax_ip",Lets the accelerator declare fused hardware blocks without changing TAIDL semantics.
+IP cost mapping,Bridge from user-facing IP names to calibrated abstraction classes,Hardware IP name,Abstraction class,Hardware designer,systolic_array_ip -> tensor_compute,Connects semantic realization to measured or modeled hardware costs.
+Hardware abstraction class,Estimator-facing cost bucket calibrated in primitive_hw_config.json,Abstraction class name,Area and energy model,DSE or hardware-model owner,tensor_compute,Allows the estimator to stay stable even when user-facing IP names change.
+Primitive hardware config,Calibrated area/energy database for abstraction classes,Abstraction class,Concrete cost parameters,DSE or hardware-model owner,vector_compute_div,Stores the actual numbers used by the cost model.

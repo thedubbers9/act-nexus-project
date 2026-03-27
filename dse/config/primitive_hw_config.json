@@ -4,7 +4,7 @@
     "description": "MVP tensor-accelerator profile focused on dense tensor compute, vector compute, reduction, special math, and contiguous movement.",
     "technology_node_nm": 130,
     "clock_ghz": 0.1,
-    "notes": "This MVP keeps only the hardware classes needed for the current ACT/TAIDL workloads. input_literal and logical_view remain as non-physical bookkeeping classes. Values are analytical placeholders until calibrated from RTL runs."
+    "notes": "Minimal estimator-facing hardware config. Keep only the fields used for area/energy calculation and a short calibration tag for provenance."
   },
   "bytes_per_dtype": {
     "u8": 1,
@@ -35,49 +35,84 @@
     },
     "contiguous_move": {
       "resource_class": "scratchpad_dma",
-      "implementation": "axi_dma_or_2d_dma_engine",
+      "implementation": "axi_dma_datamover",
       "unit_count": 2,
-      "area_per_unit_mm2": 0.18,
+      "area_per_unit_mm2": 0.173759149,
       "energy_per_op_pj": 0.0,
-      "energy_per_byte_pj": 0.08,
+      "energy_per_byte_pj": 0.43659033359375,
       "bandwidth_bytes_per_cycle": 512,
-      "calibration_target": "atfox272/dma"
+      "calibration_target": "axi_dma"
     },
     "tensor_compute": {
       "resource_class": "matrix_engine",
-      "implementation": "nvdla_cmac_or_small_systolic_array",
+      "implementation": "systolic_array_16x16_256mac_proxy",
       "unit_count": 1,
-      "area_per_unit_mm2": 3.20,
-      "energy_per_op_pj": 0.35,
+      "area_per_unit_mm2": 2.0,
+      "dynamic_power_mw": 270.0,
+      "clock_mhz": 640.0,
+      "effective_ops_per_cycle": 512,
+      "energy_per_op_pj": 0.82,
       "energy_per_byte_pj": 0.015,
-      "throughput_ops_per_cycle": 8192,
-      "calibration_target": "NV_NVDLA_cmac"
+      "throughput_ops_per_cycle": 512,
+      "calibration_target": "SAPER-AI 32x32 1024-MAC ASIC scaled linearly to 256-MAC systolic engine"
     },
-    "vector_compute": {
-      "resource_class": "vector_engine",
-      "implementation": "simd_alu_cluster",
+    "vector_compute_add": {
+      "resource_class": "vector_engine_add_logic",
+      "implementation": "tile64_vector_add_64lane_proxy",
       "unit_count": 1,
-      "area_per_unit_mm2": 0.55,
-      "energy_per_op_pj": 0.326,
+      "area_per_unit_mm2": 0.0200192,
+      "dynamic_power_mw": 1.52128,
+      "clock_mhz": 100.0,
+      "effective_ops_per_cycle": 64,
+      "energy_per_op_pj": 0.2377,
       "energy_per_byte_pj": 0.015,
-      "throughput_ops_per_cycle": 256,
-      "calibration_target": "ADD_16b family"
+      "throughput_ops_per_cycle": 64,
+      "calibration_target": "ADD_16b unit cell x64 lanes"
+    },
+    "vector_compute_mul": {
+      "resource_class": "vector_engine_mul",
+      "implementation": "tile64_vector_mul_64lane_proxy",
+      "unit_count": 1,
+      "area_per_unit_mm2": 0.164557824,
+      "dynamic_power_mw": 18.0864,
+      "clock_mhz": 100.0,
+      "effective_ops_per_cycle": 64,
+      "energy_per_op_pj": 2.826,
+      "energy_per_byte_pj": 0.015,
+      "throughput_ops_per_cycle": 64,
+      "calibration_target": "MUL_16b unit cell x64 lanes"
+    },
+    "vector_compute_div": {
+      "resource_class": "vector_engine_div",
+      "implementation": "tile64_vector_div_64lane_proxy",
+      "unit_count": 1,
+      "area_per_unit_mm2": 1.100975936,
+      "dynamic_power_mw": 110.82830592,
+      "clock_mhz": 100.0,
+      "effective_ops_per_cycle": 64,
+      "energy_per_op_pj": 17.3169228,
+      "energy_per_byte_pj": 0.015,
+      "throughput_ops_per_cycle": 64,
+      "calibration_target": "FloorDiv_16_flopped x64 lanes"
     },
     "special_math": {
       "resource_class": "vector_special_function_engine",
-      "implementation": "cordic_or_activation_pipeline",
+      "implementation": "tile64_vector_special_math_64lane_proxy",
       "unit_count": 1,
-      "area_per_unit_mm2": 0.42,
-      "energy_per_op_pj": 0.90,
+      "area_per_unit_mm2": 1.74399264,
+      "dynamic_power_mw": 363.91005184,
+      "clock_mhz": 100.0,
+      "effective_ops_per_cycle": 64,
+      "energy_per_op_pj": 56.8609456,
       "energy_per_byte_pj": 0.015,
       "throughput_ops_per_cycle": 64,
-      "calibration_target": "CORDIC RTL"
+      "calibration_target": "cordictanh x64 lanes"
     },
     "reduction": {
       "resource_class": "reduction_engine",
       "implementation": "adder_tree_or_vector_reduce_tree",
       "unit_count": 1,
-      "area_per_unit_mm2": 0.30,
+      "area_per_unit_mm2": 0.3,
       "energy_per_op_pj": 0.18,
       "energy_per_byte_pj": 0.015,
       "throughput_ops_per_cycle": 128,

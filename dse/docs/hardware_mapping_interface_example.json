@@ -1,0 +1,76 @@
+{
+  "description": "Example user-facing semantic-to-IP mapping for an accelerator with a systolic array, a dedicated softmax IP, DMA, and small vector datapaths.",
+  "primitive_to_ip": {
+    "dot": "systolic_array_ip",
+    "ewise_add": "vector_add_ip",
+    "ewise_sub": "vector_add_ip",
+    "ewise_mul": "vector_mul_ip",
+    "divide": "vector_div_ip",
+    "reduce_add": "reduction_tree_ip",
+    "exponential": "exp_ip",
+    "broadcast": "layout_or_dma_ip",
+    "copy": "dma_ip"
+  },
+  "fused_patterns": [
+    {
+      "name": "softmax_fused",
+      "match": [
+        "exponential",
+        "reduce_add",
+        "broadcast",
+        "divide"
+      ],
+      "ip": "softmax_ip"
+    },
+    {
+      "name": "exp_reduce_fused",
+      "match": [
+        "exponential",
+        "reduce_add"
+      ],
+      "ip": "exp_reduce_ip"
+    }
+  ],
+  "ip_costs": {
+    "systolic_array_ip": {
+      "abstraction_class": "tensor_compute",
+      "notes": "Use for GEMM/dot semantics executed on a systolic MAC array."
+    },
+    "softmax_ip": {
+      "abstraction_class": "special_math",
+      "notes": "Use when exponential + reduction + broadcast + divide are realized by one dedicated softmax block."
+    },
+    "exp_reduce_ip": {
+      "abstraction_class": "special_math",
+      "notes": "Use when only exponential + reduction are fused."
+    },
+    "vector_add_ip": {
+      "abstraction_class": "vector_compute_add",
+      "notes": "Shared elementwise add/sub/logic lane."
+    },
+    "vector_mul_ip": {
+      "abstraction_class": "vector_compute_mul",
+      "notes": "Elementwise multiply lane outside the systolic array."
+    },
+    "vector_div_ip": {
+      "abstraction_class": "vector_compute_div",
+      "notes": "Standalone divide lane for unfused divide behavior."
+    },
+    "reduction_tree_ip": {
+      "abstraction_class": "reduction",
+      "notes": "Standalone reduction hardware when no fused softmax-like block is present."
+    },
+    "exp_ip": {
+      "abstraction_class": "special_math",
+      "notes": "Standalone exponential engine."
+    },
+    "layout_or_dma_ip": {
+      "abstraction_class": "logical_view",
+      "notes": "Broadcast/layout-only cost may be zero or can be redirected to a movement engine depending on implementation."
+    },
+    "dma_ip": {
+      "abstraction_class": "contiguous_move",
+      "notes": "Used for explicit move/copy behavior."
+    }
+  }
+}

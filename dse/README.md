@@ -7,6 +7,7 @@ It covers:
 - Where it hooks into the ACT compiler
 - What the inputs mean
 - What each main function does
+- How semantic primitives relate to fused hardware/IP mappings
 - A full worked example using `log/mem_bound_compile/0.pii`
 - How to read final outputs
 
@@ -16,7 +17,7 @@ It covers:
 
 `DSE` means **Design Space Exploration**.
 
-In this project, the Phase-1 DSE is a **fast analytical bound pass**. It does not try to optimize schedules or pick hardware. Instead, it answers:
+In this project, the Phase-1 DSEP is a **fast analytical bound pass**. It does not try to optimize schedules or pick hardware. Instead, it answers:
 
 - Given a program candidate, a bandwidth, and a compute peak:
   - What is the **best-case (lower-bound) latency**?
@@ -128,6 +129,311 @@ python -m dse.forward_bound
     v
 CSV/JSON outputs per candidate
 ```
+
+---
+
+## 5) Semantic primitives vs fused hardware
+
+This is the most important modeling distinction in the current ACT/TAIDL flow.
+
+TAIDL semantics describe what an instruction means. Hardware/IP mapping describes
+how the accelerator actually executes that meaning.
+
+Those are not always the same thing.
+
+Example:
+
+- A `gemm` instruction may semantically contain a `dot`
+- But the hardware does not execute it as a standalone multiplier plus a standalone adder
+- Instead, it executes on a systolic MAC array
+
+So the useful modeling stack is:
+
+```text
+TAIDL instruction semantics
+    ->
+semantic primitives or primitive subgraph
+    ->
+mapping / fusion layer
+    ->
+hardware IP assignment
+    ->
+cost lookup
+```
+
+In other words:
+
+- semantic primitives are the compiler-facing meaning
+- fused mappings are the hardware-facing realization
+- cost should attach to the realized hardware path, not blindly to the smallest semantic pieces
+
+### Why this matters
+
+If we map too low too early, we get the wrong hardware story.
+
+Bad example for a systolic-array GEMM:
+
+```text
+dot -> mul + add -> multiplier IP + adder IP
+```
+
+Better:
+
+```text
+dot -> systolic_array_ip
+```
+
+The same issue shows up for softmax:
+
+- on one accelerator, softmax may be decomposed into `exp`, `reduce_add`, `broadcast`, `divide`
+- on another accelerator, some or all of those may be fused into a dedicated IP
+
+The mapping interface therefore needs to support:
+
+1. primitive fallback mapping
+2. optional fused-pattern overrides
+3. IP-level cost entries
+
+---
+
+## 6) Recommended user-facing interface
+
+The simplest practical interface is:
+
+```text
+primitive_to_ip
+fused_patterns
+ip_costs
+```
+
+### `primitive_to_ip`
+
+Fallback assignment when no fusion pattern matches.
+
+Example:
+
+```json
+{
+  "primitive_to_ip": {
+    "dot": "systolic_array_ip",
+    "ewise_add": "vector_add_ip",
+    "ewise_mul": "vector_mul_ip",
+    "divide": "vector_div_ip",
+    "reduce_add": "reduction_tree_ip",
+    "exponential": "exp_ip",
+    "broadcast": "layout_or_dma_ip"
+  }
+}
+```
+
+### `fused_patterns`
+
+Pattern overrides that tell the mapper:
+"if these semantics appear together, use this IP instead of independent fallback mappings."
+
+Example:
+
+```json
+{
+  "fused_patterns": [
+    {
+      "name": "softmax_fused",
+      "match": ["exponential", "reduce_add", "broadcast", "divide"],
+      "ip": "softmax_ip"
+    }
+  ]
+}
+```
+
+This is not a magical built-in concept. `softmax_fused` is just a user-declared pattern name.
+
+### `ip_costs`
+
+Area/energy/throughput attached to the actual hardware IP.
+
+Example:
+
+```json
+{
+  "ip_costs": {
+    "systolic_array_ip": {
+      "abstraction_class": "tensor_compute"
+    },
+    "softmax_ip": {
+      "abstraction_class": "special_math"
+    },
+    "vector_add_ip": {
+      "abstraction_class": "vector_compute_add"
+    },
+    "vector_mul_ip": {
+      "abstraction_class": "vector_compute_mul"
+    }
+  }
+}
+```
+
+The `abstraction_class` then looks up calibrated values from `dse/config/primitive_hw_config.json`.
+
+For the full interface definition and a presentation-ready summary, see:
+
+- `dse/docs/hardware_mapping_interface_spec.md`
+- `dse/docs/hardware_mapping_interface_example.json`
+- `dse/docs/hardware_mapping_project_slides.md`
+
+---
+
+## 7) Real-world example: systolic array plus softmax IP
+
+Suppose a user has an accelerator with:
+
+- a systolic array for GEMM / dot
+- a dedicated softmax IP
+- DMA for movement
+- a small vector datapath for non-fused pointwise work
+
+And suppose the TAIDL ISA contains:
+
+- `gemm`
+- `softmax`
+- `mov`
+
+### TAIDL semantics
+
+#### `gemm`
+
+```text
+ROOT %Out0 = bf16[64,64] dot(%In1, %In2)
+```
+
+Semantic meaning:
+
+- `dot`
+
+Hardware realization:
+
+- not standalone adder + multiplier IPs
+- use `systolic_array_ip`
+
+Final mapping:
+
+```text
+dot -> systolic_array_ip -> tensor_compute
+```
+
+#### `softmax`
+
+From `QKV.py`, the semantics are:
+
+```text
+%a       = exponential(%In1)
+%reduced = reduce_add(%a)
+%b       = broadcast(%reduced)
+%Out0    = divide(%a, %b)
+```
+
+There are two possible hardware realizations.
+
+### Case A: dedicated softmax IP exists
+
+The user declares:
+
+```json
+{
+  "fused_patterns": [
+    {
+      "name": "softmax_fused",
+      "match": ["exponential", "reduce_add", "broadcast", "divide"],
+      "ip": "softmax_ip"
+    }
+  ]
+}
+```
+
+Then the mapping becomes:
+
+```text
+exponential + reduce_add + broadcast + divide
+    -> softmax_ip
+    -> special_math
+```
+
+Cost model behavior:
+
+- do not sum four independent primitive costs
+- use the cost of the fused softmax IP
+
+### Case B: no dedicated softmax IP exists
+
+Then the user provides only fallback mappings:
+
+```text
+exponential -> exp_ip
+reduce_add  -> reduction_tree_ip
+broadcast   -> layout_or_dma_ip
+divide      -> vector_div_ip
+```
+
+Cost model behavior:
+
+- sum the realized hardware costs of those separate assignments
+
+This lets the same semantic program map correctly onto different hardware designs.
+
+---
+
+## 8) Partial fusion example
+
+This is the real-world case that motivated the interface design.
+
+Suppose the user has:
+
+- an IP that fuses `exponential + reduce_add`
+- but does not fuse `broadcast`
+- and does not fuse `divide`
+
+Then the mapping file can say:
+
+```json
+{
+  "primitive_to_ip": {
+    "broadcast": "layout_or_dma_ip",
+    "divide": "vector_div_ip"
+  },
+  "fused_patterns": [
+    {
+      "name": "exp_reduce_fused",
+      "match": ["exponential", "reduce_add"],
+      "ip": "exp_reduce_ip"
+    }
+  ]
+}
+```
+
+The realized mapping becomes:
+
+```text
+exponential + reduce_add -> exp_reduce_ip
+broadcast                -> layout_or_dma_ip
+divide                   -> vector_div_ip
+```
+
+This is the key property the interface needs:
+
+- users can model full fusion
+- users can model partial fusion
+- users can fall back to primitive-by-primitive mapping
+
+---
+
+## 9) Practical rule of thumb
+
+Use the highest-level mapping that still matches real hardware.
+
+- If the hardware has a dedicated systolic MAC array, map `dot` to that array
+- If the hardware has a dedicated softmax block, map the softmax pattern to that block
+- If the hardware does not have fusion for a pattern, decompose it into separate primitive-to-IP assignments
+
+This keeps the TAIDL side semantic and portable while still letting ACT attach realistic hardware cost.
 
 ---
 ## Deep dive: `attrs`, `bytes_per_elem`, and feature math logic

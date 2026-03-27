@@ -1,0 +1,45 @@
+HloModule IrToHlo.41, entry_computation_layout={(bf16[64,64]{1,0}, bf16[64,64]{1,0}, bf16[1,64]{1,0}, bf16[64,64]{1,0}, bf16[1,64]{1,0})->bf16[64,64]{1,0}}
+
+%AddComputation.15 (x.16: bf16[], y.17: bf16[]) -> bf16[] {
+  %x.16 = bf16[] parameter(0)
+  %y.17 = bf16[] parameter(1)
+  ROOT %add.18 = bf16[] add(bf16[] %x.16, bf16[] %y.17)
+}
+
+ENTRY %IrToHlo.41 (p0.3: bf16[64,64], p1.4: bf16[64,64], p2.6: bf16[1,64], p3.28: bf16[64,64], p4.30: bf16[1,64]) -> bf16[64,64] {
+  %constant.14 = s32[] constant(64)
+  %p0.3 = bf16[64,64]{1,0} parameter(0)
+  %p2.6 = bf16[1,64]{1,0} parameter(2)
+  %constant.5 = bf16[] constant(1)
+  %broadcast.7 = bf16[1,64]{1,0} broadcast(bf16[] %constant.5), dimensions={}
+  %multiply.8 = bf16[1,64]{1,0} multiply(bf16[1,64]{1,0} %p2.6, bf16[1,64]{1,0} %broadcast.7)
+  %reshape.9 = bf16[64]{0} reshape(bf16[1,64]{1,0} %multiply.8)
+  %broadcast.10 = bf16[64,64]{1,0} broadcast(bf16[64]{0} %reshape.9), dimensions={1}
+  %add.11 = bf16[64,64]{1,0} add(bf16[64,64]{1,0} %p0.3, bf16[64,64]{1,0} %broadcast.10)
+  %exponential.12 = bf16[64,64]{1,0} exponential(bf16[64,64]{1,0} %add.11)
+  %constant.13 = bf16[] constant(0)
+  %reduce.19 = bf16[64]{0} reduce(bf16[64,64]{1,0} %exponential.12, bf16[] %constant.13), dimensions={1}, to_apply=%AddComputation.15
+  %reshape.20 = bf16[64,1]{1,0} reshape(bf16[64]{0} %reduce.19)
+  %reshape.21 = bf16[64]{0} reshape(bf16[64,1]{1,0} %reshape.20)
+  %broadcast.22 = bf16[64,64]{1,0} broadcast(bf16[64]{0} %reshape.21), dimensions={0}
+  %divide.23 = bf16[64,64]{1,0} divide(bf16[64,64]{1,0} %exponential.12, bf16[64,64]{1,0} %broadcast.22)
+  %p1.4 = bf16[64,64]{1,0} parameter(1)
+  %dot.24 = bf16[64,64]{1,0} dot(bf16[64,64]{1,0} %divide.23, bf16[64,64]{1,0} %p1.4), lhs_contracting_dims={1}, rhs_contracting_dims={0}
+  %constant.2 = bf16[] constant(1)
+  %broadcast.25 = bf16[64,64]{1,0} broadcast(bf16[] %constant.2), dimensions={}
+  %multiply.26 = bf16[64,64]{1,0} multiply(bf16[64,64]{1,0} %p0.3, bf16[64,64]{1,0} %broadcast.25)
+  %add.27 = bf16[64,64]{1,0} add(bf16[64,64]{1,0} %dot.24, bf16[64,64]{1,0} %multiply.26)
+  %p4.30 = bf16[1,64]{1,0} parameter(4)
+  %constant.29 = bf16[] constant(1)
+  %broadcast.31 = bf16[1,64]{1,0} broadcast(bf16[] %constant.29), dimensions={}
+  %multiply.32 = bf16[1,64]{1,0} multiply(bf16[1,64]{1,0} %p4.30, bf16[1,64]{1,0} %broadcast.31)
+  %reshape.33 = bf16[64]{0} reshape(bf16[1,64]{1,0} %multiply.32)
+  %broadcast.34 = bf16[64,64]{1,0} broadcast(bf16[64]{0} %reshape.33), dimensions={1}
+  %add.35 = bf16[64,64]{1,0} add(bf16[64,64]{1,0} %add.27, bf16[64,64]{1,0} %broadcast.34)
+  %p3.28 = bf16[64,64]{1,0} parameter(3)
+  %dot.36 = bf16[64,64]{1,0} dot(bf16[64,64]{1,0} %add.35, bf16[64,64]{1,0} %p3.28), lhs_contracting_dims={1}, rhs_contracting_dims={0}
+  %constant.1 = bf16[] constant(1)
+  %broadcast.37 = bf16[64,64]{1,0} broadcast(bf16[] %constant.1), dimensions={}
+  %multiply.38 = bf16[64,64]{1,0} multiply(bf16[64,64]{1,0} %add.27, bf16[64,64]{1,0} %broadcast.37)
+  ROOT %add.39 = bf16[64,64]{1,0} add(bf16[64,64]{1,0} %dot.36, bf16[64,64]{1,0} %multiply.38)
+}

@@ -1,0 +1,15 @@
+label,path,total_energy_pj,used_fallback,gemm_energy_pj,load_cm_energy_pj,load_rm_energy_pj,mov_energy_pj,mov_rev_energy_pj,softmax_energy_pj,store_rm_energy_pj,gemm_calls,load_cm_calls,load_rm_calls,mov_calls,mov_rev_calls,softmax_calls,store_rm_calls
+0,/workspace/log/attn_tile64_demo/demo_000/0.py,381675.6991999999,False,367738.88,1310.72,2621.44,2621.44,0.0,6072.4992,1310.72,2,1,2,2,0,1,1
+1,/workspace/log/attn_tile64_demo/demo_000/1.py,381675.6991999999,False,367738.88,1310.72,2621.44,2621.44,0.0,6072.4992,1310.72,2,1,2,2,0,1,1
+2,/workspace/log/attn_tile64_demo/demo_000/2.py,381675.6991999999,False,367738.88,1310.72,2621.44,2621.44,0.0,6072.4992,1310.72,2,1,2,2,0,1,1
+3,/workspace/log/attn_tile64_demo/demo_000/3.py,384297.13919999986,False,367738.88,1310.72,3932.16,2621.44,0.0,6072.4992,2621.44,2,1,3,2,0,1,2
+4,/workspace/log/attn_tile64_demo/demo_000/4.py,384297.13919999986,False,367738.88,1310.72,2621.44,3932.16,1310.72,6072.4992,1310.72,2,1,2,3,1,1,1
+5,/workspace/log/attn_tile64_demo/demo_000/5.py,381675.6991999999,False,367738.88,1310.72,2621.44,2621.44,0.0,6072.4992,1310.72,2,1,2,2,0,1,1
+6,/workspace/log/attn_tile64_demo/demo_000/6.py,384297.1392,False,367738.88,1310.72,3932.16,2621.44,0.0,6072.4992,2621.44,2,1,3,2,0,1,2
+7,/workspace/log/attn_tile64_demo/demo_000/7.py,384297.1392,False,367738.88,1310.72,2621.44,3932.16,1310.72,6072.4992,1310.72,2,1,2,3,1,1,1
+8,/workspace/log/attn_tile64_demo/demo_000/8.py,381675.6991999999,False,367738.88,1310.72,2621.44,2621.44,0.0,6072.4992,1310.72,2,1,2,2,0,1,1
+9,/workspace/log/attn_tile64_demo/demo_000/9.py,384297.1392,False,367738.88,1310.72,2621.44,3932.16,1310.72,6072.4992,1310.72,2,1,2,3,1,1,1
+10,/workspace/log/attn_tile64_demo/demo_000/10.py,384297.1392,False,367738.88,1310.72,3932.16,2621.44,0.0,6072.4992,2621.44,2,1,3,2,0,1,2
+11,/workspace/log/attn_tile64_demo/demo_000/11.py,381675.6991999999,False,367738.88,1310.72,2621.44,2621.44,0.0,6072.4992,1310.72,2,1,2,2,0,1,1
+12,/workspace/log/attn_tile64_demo/demo_000/12.py,384297.1392,False,367738.88,1310.72,3932.16,2621.44,0.0,6072.4992,2621.44,2,1,3,2,0,1,2
+13,/workspace/log/attn_tile64_demo/demo_000/13.py,384297.1392,False,367738.88,1310.72,2621.44,3932.16,1310.72,6072.4992,1310.72,2,1,2,3,1,1,1
