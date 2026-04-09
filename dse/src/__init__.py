@@ -6,4 +6,6 @@ __all__ = [
     "model_forward",
     "forward_bound",
     "plot",
+    "energy_estimate",
+    "energy_workload",
 ]

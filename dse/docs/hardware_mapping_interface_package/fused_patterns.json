@@ -1,0 +1,89 @@
+{
+  "_comment": "Fused-pattern overrides. When a TAIDL instruction's semantic graph matches a pattern, the entire group of primitives is replaced by one realization_id with one IP set, instead of per-op fallback.",
+  "fused_patterns": [
+    {
+      "name": "softmax_fused",
+      "match": ["exponential", "reduce_add", "broadcast", "divide"],
+      "realization_id": "fused_softmax",
+      "ip_flow": [
+        {"step": 1, "ip_block": "acc_read_port",  "direction": "read"},
+        {"step": 2, "ip_block": "norm_unit",       "direction": "compute"},
+        {"step": 3, "ip_block": "acc_write_port",  "direction": "write"}
+      ],
+      "cost_tag": "special_function",
+      "priority": 100,
+      "notes": "Full softmax fused on config_norm or dedicated softmax IP. broadcast becomes internal address reuse."
+    },
+    {
+      "name": "exp_reduce_fused",
+      "match": ["exponential", "reduce_add"],
+      "realization_id": "fused_exp_reduce",
+      "ip_flow": [
+        {"step": 1, "ip_block": "acc_read_port",  "direction": "read"},
+        {"step": 2, "ip_block": "norm_unit",       "direction": "compute"},
+        {"step": 3, "ip_block": "acc_write_port",  "direction": "write"}
+      ],
+      "cost_tag": "special_function",
+      "priority": 80,
+      "notes": "Partial fusion: exp+reduce fused, broadcast and divide remain separate."
+    },
+    {
+      "name": "matmul_bias_relu",
+      "match": ["dot", "add", "maximum"],
+      "realization_id": "fused_gemm_bias_relu",
+      "ip_flow": [
+        {"step": 1, "ip_block": "spad_read_port", "direction": "read"},
+        {"step": 2, "ip_block": "systolic_mesh",   "direction": "compute"},
+        {"step": 3, "ip_block": "acc_adder",       "direction": "compute"},
+        {"step": 4, "ip_block": "activation_unit", "direction": "compute"},
+        {"step": 5, "ip_block": "acc_write_port",  "direction": "write"}
+      ],
+      "cost_tag": "tensor_compute",
+      "priority": 90,
+      "notes": "dot + bias add (D preload) + ReLU (config_ex activation) all in one execute pass."
+    },
+    {
+      "name": "matmul_bias",
+      "match": ["dot", "add"],
+      "realization_id": "fused_gemm_bias",
+      "ip_flow": [
+        {"step": 1, "ip_block": "spad_read_port", "direction": "read"},
+        {"step": 2, "ip_block": "systolic_mesh",   "direction": "compute"},
+        {"step": 3, "ip_block": "acc_adder",       "direction": "compute"},
+        {"step": 4, "ip_block": "acc_write_port",  "direction": "write"}
+      ],
+      "cost_tag": "tensor_compute",
+      "priority": 85,
+      "notes": "dot + bias add via D preload."
+    },
+    {
+      "name": "matmul_relu",
+      "match": ["dot", "maximum"],
+      "realization_id": "fused_gemm_relu",
+      "ip_flow": [
+        {"step": 1, "ip_block": "spad_read_port", "direction": "read"},
+        {"step": 2, "ip_block": "systolic_mesh",   "direction": "compute"},
+        {"step": 3, "ip_block": "activation_unit", "direction": "compute"},
+        {"step": 4, "ip_block": "acc_write_port",  "direction": "write"}
+      ],
+      "cost_tag": "tensor_compute",
+      "priority": 85,
+      "notes": "dot + ReLU on acc read-out."
+    },
+    {
+      "name": "conv_ws_fused",
+      "match": ["dot"],
+      "realization_id": "fused_conv_ws",
+      "ip_flow": [
+        {"step": 1, "ip_block": "dma_engine",      "direction": "read"},
+        {"step": 2, "ip_block": "im2col_unit",     "direction": "compute"},
+        {"step": 3, "ip_block": "systolic_mesh",   "direction": "compute"},
+        {"step": 4, "ip_block": "acc_write_port",  "direction": "write"},
+        {"step": 5, "ip_block": "dma_engine",      "direction": "write"}
+      ],
+      "cost_tag": "tensor_compute_tiled",
+      "priority": 70,
+      "notes": "gemmini_loop_conv_ws: convolution realized as im2col + systolic matmul."
+    }
+  ]
+}

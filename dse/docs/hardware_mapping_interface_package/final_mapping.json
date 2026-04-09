@@ -1,0 +1,1442 @@
+{
+  "version": 3,
+  "model": "realization_first",
+  "description": "Each TAIDL/XLA primitive maps to one or more realizations. Each realization maps to an ordered IP flow and a cost tag. Fused patterns override individual per-op mappings.",
+  "pipeline_stages": [
+    "1. Semantics: TAIDL/XLA meaning",
+    "2. Primitive decomposition",
+    "3. Normalization (canonical op names)",
+    "4. Fusion check (fused_patterns, highest priority first)",
+    "5. Per-op realization selection (default unless condition selects alternative)",
+    "6. IP flow assignment",
+    "7. Cost aggregation via cost_tag"
+  ],
+  "primitives": {
+    "dot": {
+      "realizations": [
+        {
+          "realization_id": "systolic_gemm",
+          "is_default": true,
+          "condition": "standard matmul; operands fit in SPAD",
+          "ip_flow": [
+            {
+              "step": 1,
+              "ip_block": "spad_read_port",
+              "direction": "read",
+              "notes": "SPAD \u2192 mesh input mux (LHS rows)"
+            },
+            {
+              "step": 2,
+              "ip_block": "spad_read_port",
+              "direction": "read",
+              "notes": "SPAD \u2192 mesh input mux (RHS cols)"
+            },
+            {
+              "step": 3,
+              "ip_block": "systolic_mesh",
+              "direction": "compute",
+              "notes": "DIM\u00d7DIM PE array; WS or OS dataflow"
+            },
+            {
+              "step": 4,
+              "ip_block": "acc_write_port",
+              "direction": "write",
+              "notes": "Mesh output \u2192 AccumulatorMem"
+            }
+          ],
+          "cost_tag": "tensor_compute",
+          "cost_formula_hint": "MACs / peak_mac_throughput",
+          "gemmini_rationale": "config_ex + matmul.preload + matmul.compute; result in ACC."
+        },
+        {
+          "realization_id": "systolic_gemm_transposed",
+          "is_default": false,
+          "condition": "one operand requires transpose",
+          "ip_flow": [
+            {
+              "step": 1,
+              "ip_block": "spad_read_port",
+              "direction": "read",
+              "notes": "SPAD \u2192 transposer input"
+            },
+            {
+              "step": 2,
+              "ip_block": "transposer",
+              "direction": "compute",
+              "notes": "On-chip transpose unit inside ExecuteController"
+            },
+            {
+              "step": 3,
+              "ip_block": "systolic_mesh",
+              "direction": "compute",
+              "notes": "Transposed data feeds mesh"
+            },
+            {
+              "step": 4,
+              "ip_block": "acc_write_port",
+              "direction": "write",
+              "notes": "Mesh output \u2192 AccumulatorMem"
+            }
+          ],
+          "cost_tag": "tensor_compute",
+          "cost_formula_hint": "MACs / peak_mac_throughput",
+          "gemmini_rationale": "Same execute path but config_ex transpose bits set; on-chip transposer feeds mesh."
+        },
+        {
+          "realization_id": "loop_ws_tiled",
+          "is_default": false,
+          "condition": "tile larger than DIM; compiler emits CISC",
+          "ip_flow": [
+            {
+              "step": 1,
+              "ip_block": "dma_engine",
+              "direction": "read",
+              "notes": "DRAM \u2192 SPAD double-buffered tiles"
+            },
+            {
+              "step": 2,
+              "ip_block": "loop_unroller_fsm",
+              "direction": "control",
+              "notes": "CISC gemmini_loop_ws FSM"
+            },
+            {
+              "step": 3,
+              "ip_block": "spad_read_port",
+              "direction": "read",
+              "notes": "SPAD rows/cols to mesh"
+            },
+            {
+              "step": 4,
+              "ip_block": "systolic_mesh",
+              "direction": "compute",
+              "notes": "Tile computation"
+            },
+            {
+              "step": 5,
+              "ip_block": "acc_write_port",
+              "direction": "write",
+              "notes": "Partial sums to ACC"
+            },
+            {
+              "step": 6,
+              "ip_block": "dma_engine",
+              "direction": "write",
+              "notes": "ACC \u2192 DRAM (final tiles)"
+            }
+          ],
+          "cost_tag": "tensor_compute_tiled",
+          "cost_formula_hint": "tile_passes * per_tile_cost + dma_overhead",
+          "gemmini_rationale": "gemmini_loop_ws: FSM handles double-buffered tiling automatically."
+        }
+      ]
+    },
+    "add": {
+      "realizations": [
+        {
+          "realization_id": "fused_bias_in_matmul",
+          "is_default": false,
+          "condition": "add is fused as D operand in OS matmul",
+          "ip_flow": [
+            {
+              "step": 1,
+              "ip_block": "none",
+              "direction": "absorbed",
+              "notes": "Folded into matmul.preload D operand; no separate IP"
+            }
+          ],
+          "cost_tag": "zero_cost",
+          "cost_formula_hint": "0",
+          "gemmini_rationale": "No separate IP; add absorbed into matmul.preload D preload. Cost folded into dot."
+        },
+        {
+          "realization_id": "acc_accumulate",
+          "is_default": false,
+          "condition": "operand in ACC; in-place accumulation",
+          "ip_flow": [
+            {
+              "step": 1,
+              "ip_block": "acc_read_port",
+              "direction": "read",
+              "notes": "Read current ACC value"
+            },
+            {
+              "step": 2,
+              "ip_block": "acc_adder",
+              "direction": "compute",
+              "notes": "ACC internal adder"
+            },
+            {
+              "step": 3,
+              "ip_block": "acc_write_port",
+              "direction": "write",
+              "notes": "Write accumulated result"
+            }
+          ],
+          "cost_tag": "onchip_compute",
+          "cost_formula_hint": "elements * acc_op_latency",
+          "gemmini_rationale": "ACC write with accumulate bit set (bit 30 of acc address). Uses acc adder units."
+        },
+        {
+          "realization_id": "standalone_rocket",
+          "is_default": true,
+          "condition": "general elementwise add; no fusion matched",
+          "ip_flow": [
+            {
+              "step": 1,
+              "ip_block": "rocket_core",
+              "direction": "compute",
+              "notes": "Host CPU scalar/vector library loop"
+            }
+          ],
+          "cost_tag": "host_fallback",
+          "cost_formula_hint": "elements * rocket_per_elem_cycles",
+          "gemmini_rationale": "Rocket core library loop over SPAD/ACC data."
+        }
+      ]
+    },
+    "subtract": {
+      "realizations": [
+        {
+          "realization_id": "acc_path",
+          "is_default": false,
+          "condition": "operand in ACC; same adder family as add",
+          "ip_flow": [
+            {
+              "step": 1,
+              "ip_block": "acc_read_port",
+              "direction": "read",
+              "notes": "Read operand from ACC"
+            },
+            {
+              "step": 2,
+              "ip_block": "acc_adder",
+              "direction": "compute",
+              "notes": "Negate + add"
+            },
+            {
+              "step": 3,
+              "ip_block": "acc_write_port",
+              "direction": "write",
+              "notes": "Write result to ACC"
+            }
+          ],
+          "cost_tag": "onchip_compute",
+          "cost_formula_hint": "elements * acc_op_latency",
+          "gemmini_rationale": "Same acc adder units as add; negate + accumulate."
+        },
+        {
+          "realization_id": "standalone_rocket",
+          "is_default": true,
+          "condition": "general elementwise subtract",
+          "ip_flow": [
+            {
+              "step": 1,
+              "ip_block": "rocket_core",
+              "direction": "compute",
+              "notes": "Host CPU scalar/vector library loop"
+            }
+          ],
+          "cost_tag": "host_fallback",
+          "cost_formula_hint": "elements * rocket_per_elem_cycles",
+          "gemmini_rationale": "Rocket core library."
+        }
+      ]
+    },
+    "multiply": {
+      "realizations": [
+        {
+          "realization_id": "standalone_rocket",
+          "is_default": true,
+          "condition": "elementwise multiply (never systolic dot)",
+          "ip_flow": [
+            {
+              "step": 1,
+              "ip_block": "rocket_core",
+              "direction": "compute",
+              "notes": "Host CPU scalar/vector library loop"
+            }
+          ],
+          "cost_tag": "host_fallback",
+          "cost_formula_hint": "elements * rocket_per_elem_cycles",
+          "gemmini_rationale": "No dedicated ewise-mul lane on Gemmini; Rocket library. Do NOT map to systolic."
+        }
+      ]
+    },
+    "divide": {
+      "realizations": [
+        {
+          "realization_id": "standalone_rocket",
+          "is_default": true,
+          "condition": "general elementwise divide",
+          "ip_flow": [
+            {
+              "step": 1,
+              "ip_block": "rocket_core",
+              "direction": "compute",
+              "notes": "Host CPU scalar/vector library loop"
+            }
+          ],
+          "cost_tag": "host_fallback",
+          "cost_formula_hint": "elements * rocket_per_elem_cycles",
+          "gemmini_rationale": "No divider in Gemmini datapath; Rocket."
+        },
+        {
+          "realization_id": "fused_quant_scale",
+          "is_default": false,
+          "condition": "divide by constant power-of-2; fits acc scale-down",
+          "ip_flow": [
+            {
+              "step": 1,
+              "ip_block": "acc_scale_unit",
+              "direction": "compute",
+              "notes": "Scale on acc read-down; constant-division path"
+            }
+          ],
+          "cost_tag": "zero_cost",
+          "cost_formula_hint": "tiny_scale_cycles",
+          "gemmini_rationale": "Absorb into acc read-down scaling (config_ex scale field). Cost near zero."
+        }
+      ]
+    },
+    "maximum": {
+      "realizations": [
+        {
+          "realization_id": "relu_activation",
+          "is_default": false,
+          "condition": "pattern is max(x; 0) i.e. ReLU",
+          "ip_flow": [
+            {
+              "step": 1,
+              "ip_block": "acc_read_port",
+              "direction": "read",
+              "notes": "Read from ACC"
+            },
+            {
+              "step": 2,
+              "ip_block": "activation_unit",
+              "direction": "compute",
+              "notes": "config_ex ReLU comparator on acc read-out"
+            },
+            {
+              "step": 3,
+              "ip_block": "acc_write_port",
+              "direction": "write",
+              "notes": "Write clamped result (or pass through to store)"
+            }
+          ],
+          "cost_tag": "activation_tag",
+          "cost_formula_hint": "elements * activation_latency",
+          "gemmini_rationale": "config_ex activation bit = 1. Applied on acc read-out. No separate engine."
+        },
+        {
+          "realization_id": "maxpool_on_store",
+          "is_default": false,
+          "condition": "pooling pattern on mvout path",
+          "ip_flow": [
+            {
+              "step": 1,
+              "ip_block": "acc_read_port",
+              "direction": "read",
+              "notes": "Read from ACC"
+            },
+            {
+              "step": 2,
+              "ip_block": "store_pool_unit",
+              "direction": "compute",
+              "notes": "mvout pooling comparators (config_mvout pool params)"
+            },
+            {
+              "step": 3,
+              "ip_block": "dma_engine",
+              "direction": "write",
+              "notes": "Pooled output via mvout to DRAM"
+            }
+          ],
+          "cost_tag": "onchip_compute",
+          "cost_formula_hint": "pooled_elements * pool_compare_latency",
+          "gemmini_rationale": "config_mvout pool params + mvout comparators. Part of StoreController."
+        },
+        {
+          "realization_id": "standalone_rocket",
+          "is_default": true,
+          "condition": "general two-tensor max",
+          "ip_flow": [
+            {
+              "step": 1,
+              "ip_block": "rocket_core",
+              "direction": "compute",
+              "notes": "Host CPU scalar/vector library loop"
+            }
+          ],
+          "cost_tag": "host_fallback",
+          "cost_formula_hint": "elements * rocket_per_elem_cycles",
+          "gemmini_rationale": "Rocket core library."
+        }
+      ]
+    },
+    "minimum": {
+      "realizations": [
+        {
+          "realization_id": "standalone_rocket",
+          "is_default": true,
+          "condition": "no native min",
+          "ip_flow": [
+            {
+              "step": 1,
+              "ip_block": "rocket_core",
+              "direction": "compute",
+              "notes": "Host CPU scalar/vector library loop"
+            }
+          ],
+          "cost_tag": "host_fallback",
+          "cost_formula_hint": "elements * rocket_per_elem_cycles",
+          "gemmini_rationale": "Rocket core library."
+        }
+      ]
+    },
+    "xor": {
+      "realizations": [
+        {
+          "realization_id": "standalone_rocket",
+          "is_default": true,
+          "condition": "no bitwise vector ISA on Gemmini",
+          "ip_flow": [
+            {
+              "step": 1,
+              "ip_block": "rocket_core",
+              "direction": "compute",
+              "notes": "Host CPU scalar/vector library loop"
+            }
+          ],
+          "cost_tag": "host_fallback",
+          "cost_formula_hint": "elements * rocket_per_elem_cycles",
+          "gemmini_rationale": "Rocket core."
+        }
+      ]
+    },
+    "exponential": {
+      "realizations": [
+        {
+          "realization_id": "config_norm_path",
+          "is_default": false,
+          "condition": "integer-only variant (I-BERT style); config_norm enabled",
+          "ip_flow": [
+            {
+              "step": 1,
+              "ip_block": "acc_read_port",
+              "direction": "read",
+              "notes": "Read input from ACC"
+            },
+            {
+              "step": 2,
+              "ip_block": "norm_unit",
+              "direction": "compute",
+              "notes": "Experimental normalization engine (I-BERT integer exp)"
+            },
+            {
+              "step": 3,
+              "ip_block": "acc_write_port",
+              "direction": "write",
+              "notes": "Result back to ACC"
+            }
+          ],
+          "cost_tag": "special_function",
+          "cost_formula_hint": "elements * norm_latency",
+          "gemmini_rationale": "Experimental config_norm. Only for supported integer exp subset."
+        },
+        {
+          "realization_id": "standalone_rocket",
+          "is_default": true,
+          "condition": "general exp",
+          "ip_flow": [
+            {
+              "step": 1,
+              "ip_block": "rocket_core",
+              "direction": "compute",
+              "notes": "Host CPU scalar/vector library loop"
+            }
+          ],
+          "cost_tag": "host_fallback",
+          "cost_formula_hint": "elements * rocket_per_elem_cycles",
+          "gemmini_rationale": "Rocket core library (or SFU if you add one to your profile)."
+        }
+      ]
+    },
+    "exp": {
+      "realizations": [
+        {
+          "realization_id": "config_norm_path",
+          "is_default": false,
+          "condition": "same as exponential alias",
+          "ip_flow": [
+            {
+              "step": 1,
+              "ip_block": "acc_read_port",
+              "direction": "read",
+              "notes": "Read input from ACC"
+            },
+            {
+              "step": 2,
+              "ip_block": "norm_unit",
+              "direction": "compute",
+              "notes": "Experimental normalization engine (I-BERT integer exp)"
+            },
+            {
+              "step": 3,
+              "ip_block": "acc_write_port",
+              "direction": "write",
+              "notes": "Result back to ACC"
+            }
+          ],
+          "cost_tag": "special_function",
+          "cost_formula_hint": "elements * norm_latency",
+          "gemmini_rationale": "Experimental config_norm."
+        },
+        {
+          "realization_id": "standalone_rocket",
+          "is_default": true,
+          "condition": "general exp (alias)",
+          "ip_flow": [
+            {
+              "step": 1,
+              "ip_block": "rocket_core",
+              "direction": "compute",
+              "notes": "Host CPU scalar/vector library loop"
+            }
+          ],
+          "cost_tag": "host_fallback",
+          "cost_formula_hint": "elements * rocket_per_elem_cycles",
+          "gemmini_rationale": "Rocket core library."
+        }
+      ]
+    },
+    "reduce": {
+      "realizations": [
+        {
+          "realization_id": "acc_partial_passes",
+          "is_default": false,
+          "condition": "combiner is add-like; reduction over systolic-friendly dim",
+          "ip_flow": [
+            {
+              "step": 1,
+              "ip_block": "spad_read_port",
+              "direction": "read",
+              "notes": "Read data from SPAD"
+            },
+            {
+              "step": 2,
+              "ip_block": "systolic_mesh",
+              "direction": "compute",
+              "notes": "Partial sums via mesh (identity matmul or vector pass)"
+            },
+            {
+              "step": 3,
+              "ip_block": "acc_adder",
+              "direction": "compute",
+              "notes": "Accumulate partials"
+            },
+            {
+              "step": 4,
+              "ip_block": "acc_write_port",
+              "direction": "write",
+              "notes": "Write final reduction"
+            }
+          ],
+          "cost_tag": "onchip_compute",
+          "cost_formula_hint": "passes * DIM * mesh_latency",
+          "gemmini_rationale": "Multi-pass through systolic+ACC; partial sums accumulated in AccumulatorMem."
+        },
+        {
+          "realization_id": "standalone_rocket",
+          "is_default": true,
+          "condition": "general reduction or non-add combiner",
+          "ip_flow": [
+            {
+              "step": 1,
+              "ip_block": "rocket_core",
+              "direction": "compute",
+              "notes": "Host CPU scalar/vector library loop"
+            }
+          ],
+          "cost_tag": "host_fallback",
+          "cost_formula_hint": "elements * rocket_per_elem_cycles",
+          "gemmini_rationale": "Rocket core library."
+        }
+      ]
+    },
+    "reduce_add": {
+      "realizations": [
+        {
+          "realization_id": "acc_partial_passes",
+          "is_default": true,
+          "condition": "sum reduction; default on-device path",
+          "ip_flow": [
+            {
+              "step": 1,
+              "ip_block": "spad_read_port",
+              "direction": "read",
+              "notes": "Read data from SPAD"
+            },
+            {
+              "step": 2,
+              "ip_block": "systolic_mesh",
+              "direction": "compute",
+              "notes": "Partial sums via mesh (identity matmul or vector pass)"
+            },
+            {
+              "step": 3,
+              "ip_block": "acc_adder",
+              "direction": "compute",
+              "notes": "Accumulate partials"
+            },
+            {
+              "step": 4,
+              "ip_block": "acc_write_port",
+              "direction": "write",
+              "notes": "Write final reduction"
+            }
+          ],
+          "cost_tag": "onchip_compute",
+          "cost_formula_hint": "passes * DIM * mesh_latency",
+          "gemmini_rationale": "Multi-pass ACC partials; may need Rocket for tail/finalization."
+        },
+        {
+          "realization_id": "standalone_rocket",
+          "is_default": false,
+          "condition": "tiny reduction or host-preferred schedule",
+          "ip_flow": [
+            {
+              "step": 1,
+              "ip_block": "rocket_core",
+              "direction": "compute",
+              "notes": "Host CPU scalar/vector library loop"
+            }
+          ],
+          "cost_tag": "host_fallback",
+          "cost_formula_hint": "elements * rocket_per_elem_cycles",
+          "gemmini_rationale": "Rocket core library."
+        }
+      ]
+    },
+    "broadcast": {
+      "realizations": [
+        {
+          "realization_id": "virtual_broadcast",
+          "is_default": true,
+          "condition": "single consumer; immediately consumed; no materialization",
+          "ip_flow": [
+            {
+              "step": 1,
+              "ip_block": "controller_agu",
+              "direction": "control",
+              "notes": "Address generation unit re-reads same location with stride 0"
+            }
+          ],
+          "cost_tag": "control_addressing",
+          "cost_formula_hint": "tiny_control_cycles",
+          "gemmini_rationale": "Controller AGU / stride-based reuse. Cost = 0 data movement."
+        },
+        {
+          "realization_id": "materialized_broadcast",
+          "is_default": false,
+          "condition": "result must physically exist as dense tensor",
+          "ip_flow": [
+            {
+              "step": 1,
+              "ip_block": "dma_engine",
+              "direction": "read",
+              "notes": "Read source from SPAD/ACC"
+            },
+            {
+              "step": 2,
+              "ip_block": "dma_engine",
+              "direction": "write",
+              "notes": "Write expanded tensor to SPAD/ACC"
+            }
+          ],
+          "cost_tag": "onchip_movement",
+          "cost_formula_hint": "expanded_bytes / onchip_bw",
+          "gemmini_rationale": "DMA engine writes expanded tensor into SPAD/ACC. Cost = tensor bytes."
+        },
+        {
+          "realization_id": "fused_broadcast",
+          "is_default": false,
+          "condition": "absorbed inside a fused_pattern (e.g. softmax)",
+          "ip_flow": [
+            {
+              "step": 1,
+              "ip_block": "none",
+              "direction": "absorbed",
+              "notes": "Absorbed into fused pattern; consumer handles addressing"
+            }
+          ],
+          "cost_tag": "zero_cost",
+          "cost_formula_hint": "0",
+          "gemmini_rationale": "No separate cost; fusion region owns the accounting."
+        }
+      ]
+    },
+    "reshape": {
+      "realizations": [
+        {
+          "realization_id": "logical_view",
+          "is_default": true,
+          "condition": "no physical relayout needed; compatible row-major strides",
+          "ip_flow": [
+            {
+              "step": 1,
+              "ip_block": "none",
+              "direction": "metadata",
+              "notes": "No hardware activity; metadata reinterpretation"
+            }
+          ],
+          "cost_tag": "zero_cost",
+          "cost_formula_hint": "0",
+          "gemmini_rationale": "Metadata only. Cost = 0."
+        },
+        {
+          "realization_id": "physical_relayout",
+          "is_default": false,
+          "condition": "lowering requires actual byte reorder",
+          "ip_flow": [
+            {
+              "step": 1,
+              "ip_block": "dma_engine",
+              "direction": "read",
+              "notes": "Read source tensor"
+            },
+            {
+              "step": 2,
+              "ip_block": "dma_engine",
+              "direction": "write",
+              "notes": "Write reordered tensor"
+            }
+          ],
+          "cost_tag": "onchip_movement",
+          "cost_formula_hint": "tensor_bytes / onchip_bw",
+          "gemmini_rationale": "DMA + relayout path. Cost = tensor bytes."
+        }
+      ]
+    },
+    "bitcast_convert": {
+      "realizations": [
+        {
+          "realization_id": "logical_view",
+          "is_default": true,
+          "condition": "reinterpret bits; no movement",
+          "ip_flow": [
+            {
+              "step": 1,
+              "ip_block": "none",
+              "direction": "metadata",
+              "notes": "No hardware activity; metadata reinterpretation"
+            }
+          ],
+          "cost_tag": "zero_cost",
+          "cost_formula_hint": "0",
+          "gemmini_rationale": "Metadata only. Cost = 0."
+        },
+        {
+          "realization_id": "physical_copy",
+          "is_default": false,
+          "condition": "backend cannot keep as view",
+          "ip_flow": [
+            {
+              "step": 1,
+              "ip_block": "dma_engine",
+              "direction": "read",
+              "notes": "Read source"
+            },
+            {
+              "step": 2,
+              "ip_block": "dma_engine",
+              "direction": "write",
+              "notes": "Write to new location"
+            }
+          ],
+          "cost_tag": "onchip_movement",
+          "cost_formula_hint": "tensor_bytes / onchip_bw",
+          "gemmini_rationale": "DMA copy. Cost = tensor bytes."
+        }
+      ]
+    },
+    "convert": {
+      "realizations": [
+        {
+          "realization_id": "mvin_scale",
+          "is_default": false,
+          "condition": "quant path; scale during load (mvin scale fields)",
+          "ip_flow": [
+            {
+              "step": 1,
+              "ip_block": "dma_engine",
+              "direction": "read",
+              "notes": "DRAM read + mvin scale hardware"
+            },
+            {
+              "step": 2,
+              "ip_block": "mvin_scale_unit",
+              "direction": "compute",
+              "notes": "Scale applied during mvin transfer"
+            },
+            {
+              "step": 3,
+              "ip_block": "spad_write_port",
+              "direction": "write",
+              "notes": "Scaled data into SPAD"
+            }
+          ],
+          "cost_tag": "offchip_movement",
+          "cost_formula_hint": "bytes / dram_bw",
+          "gemmini_rationale": "Scale applied by mvin hardware during DRAM\u2192SPAD transfer."
+        },
+        {
+          "realization_id": "acc_scale_read",
+          "is_default": false,
+          "condition": "quant path; scale on acc read-down to inputType",
+          "ip_flow": [
+            {
+              "step": 1,
+              "ip_block": "acc_read_port",
+              "direction": "read",
+              "notes": "Read from ACC with scale config active"
+            },
+            {
+              "step": 2,
+              "ip_block": "acc_scale_unit",
+              "direction": "compute",
+              "notes": "Scale on acc read-down (accType \u2192 inputType)"
+            },
+            {
+              "step": 3,
+              "ip_block": "spad_write_port",
+              "direction": "write",
+              "notes": "Scaled result to SPAD"
+            }
+          ],
+          "cost_tag": "onchip_compute",
+          "cost_formula_hint": "elements * scale_latency",
+          "gemmini_rationale": "Acc read-down scaling (config_ex scale field). accType\u2192inputType."
+        },
+        {
+          "realization_id": "standalone_rocket",
+          "is_default": true,
+          "condition": "general dtype cast",
+          "ip_flow": [
+            {
+              "step": 1,
+              "ip_block": "rocket_core",
+              "direction": "compute",
+              "notes": "Host CPU scalar/vector library loop"
+            }
+          ],
+          "cost_tag": "host_fallback",
+          "cost_formula_hint": "elements * rocket_per_elem_cycles",
+          "gemmini_rationale": "Rocket core. True value conversion."
+        }
+      ]
+    },
+    "transpose": {
+      "realizations": [
+        {
+          "realization_id": "folded_into_matmul",
+          "is_default": false,
+          "condition": "transpose absorbed by following dot; config_ex transpose bits",
+          "ip_flow": [
+            {
+              "step": 1,
+              "ip_block": "transposer",
+              "direction": "compute",
+              "notes": "On-chip transposer; cost folded into consumer matmul"
+            }
+          ],
+          "cost_tag": "zero_cost",
+          "cost_formula_hint": "0",
+          "gemmini_rationale": "On-chip transposer inside ExecuteController. No separate movement cost."
+        },
+        {
+          "realization_id": "explicit_relayout",
+          "is_default": true,
+          "condition": "standalone transpose; not folded",
+          "ip_flow": [
+            {
+              "step": 1,
+              "ip_block": "dma_engine",
+              "direction": "read",
+              "notes": "Read source layout"
+            },
+            {
+              "step": 2,
+              "ip_block": "transposer",
+              "direction": "compute",
+              "notes": "Transpose bytes"
+            },
+            {
+              "step": 3,
+              "ip_block": "dma_engine",
+              "direction": "write",
+              "notes": "Write transposed layout"
+            }
+          ],
+          "cost_tag": "onchip_movement",
+          "cost_formula_hint": "tensor_bytes / onchip_bw",
+          "gemmini_rationale": "DMA-based relayout (or transposer + explicit stage). Cost = tensor bytes."
+        }
+      ]
+    },
+    "copy": {
+      "realizations": [
+        {
+          "realization_id": "dma_offchip",
+          "is_default": false,
+          "condition": "DRAM \u2194 SPAD/ACC",
+          "ip_flow": [
+            {
+              "step": 1,
+              "ip_block": "dma_engine",
+              "direction": "read",
+              "notes": "mvin: DRAM \u2192 SPAD/ACC (or mvout: reverse)"
+            },
+            {
+              "step": 2,
+              "ip_block": "spad_write_port",
+              "direction": "write",
+              "notes": "Data lands in SPAD (or ACC)"
+            }
+          ],
+          "cost_tag": "offchip_movement",
+          "cost_formula_hint": "bytes / dram_bw",
+          "gemmini_rationale": "mvin / mvout via LoadController / StoreController."
+        },
+        {
+          "realization_id": "onchip_move",
+          "is_default": true,
+          "condition": "SPAD \u2194 ACC or SPAD \u2194 SPAD",
+          "ip_flow": [
+            {
+              "step": 1,
+              "ip_block": "spad_read_port",
+              "direction": "read",
+              "notes": "Source scratchpad read"
+            },
+            {
+              "step": 2,
+              "ip_block": "spad_write_port",
+              "direction": "write",
+              "notes": "Destination scratchpad write"
+            }
+          ],
+          "cost_tag": "onchip_movement",
+          "cost_formula_hint": "bytes / onchip_bw",
+          "gemmini_rationale": "Internal datapath (like mov/mov_rev in ATTN_TILE64). Cost = on-chip bytes."
+        }
+      ]
+    },
+    "slice": {
+      "realizations": [
+        {
+          "realization_id": "affine_addressing",
+          "is_default": true,
+          "condition": "submatrix via mvin/mvout row/col counts + strides",
+          "ip_flow": [
+            {
+              "step": 1,
+              "ip_block": "controller_agu",
+              "direction": "control",
+              "notes": "Row/col counts + strides; sub-matrix selection"
+            }
+          ],
+          "cost_tag": "control_addressing",
+          "cost_formula_hint": "tiny_control_cycles",
+          "gemmini_rationale": "Addressing only; no separate slice engine."
+        },
+        {
+          "realization_id": "dma_extract",
+          "is_default": false,
+          "condition": "sliced result must be standalone dense tensor",
+          "ip_flow": [
+            {
+              "step": 1,
+              "ip_block": "dma_engine",
+              "direction": "read",
+              "notes": "Read slice source"
+            },
+            {
+              "step": 2,
+              "ip_block": "spad_write_port",
+              "direction": "write",
+              "notes": "Write dense slice to new SPAD region"
+            }
+          ],
+          "cost_tag": "onchip_movement",
+          "cost_formula_hint": "slice_bytes / onchip_bw",
+          "gemmini_rationale": "DMA copy to new SPAD region. Cost = slice bytes."
+        }
+      ]
+    },
+    "concatenate": {
+      "realizations": [
+        {
+          "realization_id": "dma_staging",
+          "is_default": true,
+          "condition": "stage operands into adjacent SPAD/ACC regions",
+          "ip_flow": [
+            {
+              "step": 1,
+              "ip_block": "dma_engine",
+              "direction": "read",
+              "notes": "Read each operand"
+            },
+            {
+              "step": 2,
+              "ip_block": "spad_write_port",
+              "direction": "write",
+              "notes": "Write into adjacent SPAD banks"
+            }
+          ],
+          "cost_tag": "onchip_movement",
+          "cost_formula_hint": "total_bytes / onchip_bw",
+          "gemmini_rationale": "Sequential mvins. Cost = total bytes of all operands."
+        }
+      ]
+    },
+    "dynamic_update_slice": {
+      "realizations": [
+        {
+          "realization_id": "standalone_rocket",
+          "is_default": true,
+          "condition": "irregular indexed update",
+          "ip_flow": [
+            {
+              "step": 1,
+              "ip_block": "rocket_core",
+              "direction": "compute",
+              "notes": "Host CPU scalar/vector library loop"
+            }
+          ],
+          "cost_tag": "host_fallback",
+          "cost_formula_hint": "elements * rocket_per_elem_cycles",
+          "gemmini_rationale": "No gather/scatter on baseline Gemmini; Rocket scalar loops."
+        }
+      ]
+    },
+    "parameter": {
+      "realizations": [
+        {
+          "realization_id": "host_to_device",
+          "is_default": true,
+          "condition": "tensor input from host",
+          "ip_flow": [
+            {
+              "step": 1,
+              "ip_block": "dma_engine",
+              "direction": "read",
+              "notes": "DRAM host memory"
+            },
+            {
+              "step": 2,
+              "ip_block": "spad_write_port",
+              "direction": "write",
+              "notes": "Into SPAD or ACC"
+            }
+          ],
+          "cost_tag": "offchip_movement",
+          "cost_formula_hint": "bytes / dram_bw",
+          "gemmini_rationale": "DRAM \u2192 mvin into SPAD or ACC."
+        }
+      ]
+    },
+    "constant": {
+      "realizations": [
+        {
+          "realization_id": "host_to_device",
+          "is_default": true,
+          "condition": "literal from host memory",
+          "ip_flow": [
+            {
+              "step": 1,
+              "ip_block": "dma_engine",
+              "direction": "read",
+              "notes": "DRAM host memory"
+            },
+            {
+              "step": 2,
+              "ip_block": "spad_write_port",
+              "direction": "write",
+              "notes": "Into SPAD or ACC"
+            }
+          ],
+          "cost_tag": "offchip_movement",
+          "cost_formula_hint": "bytes / dram_bw",
+          "gemmini_rationale": "DRAM \u2192 mvin into SPAD or ACC."
+        }
+      ]
+    },
+    "select_lt": {
+      "realizations": [
+        {
+          "realization_id": "standalone_rocket",
+          "is_default": true,
+          "condition": "TAIDL composite; expand then host",
+          "ip_flow": [
+            {
+              "step": 1,
+              "ip_block": "rocket_core",
+              "direction": "compute",
+              "notes": "Host CPU scalar/vector library loop"
+            }
+          ],
+          "cost_tag": "host_fallback",
+          "cost_formula_hint": "elements * rocket_per_elem_cycles",
+          "gemmini_rationale": "Expands to compare+select; Rocket core."
+        },
+        {
+          "realization_id": "fused_relu_like",
+          "is_default": false,
+          "condition": "pattern recognized as max(x;0) after expansion",
+          "ip_flow": [
+            {
+              "step": 1,
+              "ip_block": "activation_unit",
+              "direction": "compute",
+              "notes": "Same as relu_activation; folded after select expansion"
+            }
+          ],
+          "cost_tag": "activation_tag",
+          "cost_formula_hint": "elements * activation_latency",
+          "gemmini_rationale": "Folds into config_ex ReLU."
+        }
+      ]
+    },
+    "select_eq_var": {
+      "realizations": [
+        {
+          "realization_id": "standalone_rocket",
+          "is_default": true,
+          "condition": "TAIDL composite; expand then host",
+          "ip_flow": [
+            {
+              "step": 1,
+              "ip_block": "rocket_core",
+              "direction": "compute",
+              "notes": "Host CPU scalar/vector library loop"
+            }
+          ],
+          "cost_tag": "host_fallback",
+          "cost_formula_hint": "elements * rocket_per_elem_cycles",
+          "gemmini_rationale": "Expands to compare+and+select; Rocket core."
+        }
+      ]
+    }
+  },
+  "fused_patterns": [
+    {
+      "name": "softmax_fused",
+      "match": [
+        "exponential",
+        "reduce_add",
+        "broadcast",
+        "divide"
+      ],
+      "realization_id": "fused_softmax",
+      "ip_flow": [
+        {
+          "step": 1,
+          "ip_block": "acc_read_port",
+          "direction": "read"
+        },
+        {
+          "step": 2,
+          "ip_block": "norm_unit",
+          "direction": "compute"
+        },
+        {
+          "step": 3,
+          "ip_block": "acc_write_port",
+          "direction": "write"
+        }
+      ],
+      "cost_tag": "special_function",
+      "priority": 100,
+      "notes": "Full softmax fused on config_norm or dedicated softmax IP. broadcast becomes internal address reuse."
+    },
+    {
+      "name": "exp_reduce_fused",
+      "match": [
+        "exponential",
+        "reduce_add"
+      ],
+      "realization_id": "fused_exp_reduce",
+      "ip_flow": [
+        {
+          "step": 1,
+          "ip_block": "acc_read_port",
+          "direction": "read"
+        },
+        {
+          "step": 2,
+          "ip_block": "norm_unit",
+          "direction": "compute"
+        },
+        {
+          "step": 3,
+          "ip_block": "acc_write_port",
+          "direction": "write"
+        }
+      ],
+      "cost_tag": "special_function",
+      "priority": 80,
+      "notes": "Partial fusion: exp+reduce fused, broadcast and divide remain separate."
+    },
+    {
+      "name": "matmul_bias_relu",
+      "match": [
+        "dot",
+        "add",
+        "maximum"
+      ],
+      "realization_id": "fused_gemm_bias_relu",
+      "ip_flow": [
+        {
+          "step": 1,
+          "ip_block": "spad_read_port",
+          "direction": "read"
+        },
+        {
+          "step": 2,
+          "ip_block": "systolic_mesh",
+          "direction": "compute"
+        },
+        {
+          "step": 3,
+          "ip_block": "acc_adder",
+          "direction": "compute"
+        },
+        {
+          "step": 4,
+          "ip_block": "activation_unit",
+          "direction": "compute"
+        },
+        {
+          "step": 5,
+          "ip_block": "acc_write_port",
+          "direction": "write"
+        }
+      ],
+      "cost_tag": "tensor_compute",
+      "priority": 90,
+      "notes": "dot + bias add (D preload) + ReLU (config_ex activation) all in one execute pass."
+    },
+    {
+      "name": "matmul_bias",
+      "match": [
+        "dot",
+        "add"
+      ],
+      "realization_id": "fused_gemm_bias",
+      "ip_flow": [
+        {
+          "step": 1,
+          "ip_block": "spad_read_port",
+          "direction": "read"
+        },
+        {
+          "step": 2,
+          "ip_block": "systolic_mesh",
+          "direction": "compute"
+        },
+        {
+          "step": 3,
+          "ip_block": "acc_adder",
+          "direction": "compute"
+        },
+        {
+          "step": 4,
+          "ip_block": "acc_write_port",
+          "direction": "write"
+        }
+      ],
+      "cost_tag": "tensor_compute",
+      "priority": 85,
+      "notes": "dot + bias add via D preload."
+    },
+    {
+      "name": "matmul_relu",
+      "match": [
+        "dot",
+        "maximum"
+      ],
+      "realization_id": "fused_gemm_relu",
+      "ip_flow": [
+        {
+          "step": 1,
+          "ip_block": "spad_read_port",
+          "direction": "read"
+        },
+        {
+          "step": 2,
+          "ip_block": "systolic_mesh",
+          "direction": "compute"
+        },
+        {
+          "step": 3,
+          "ip_block": "activation_unit",
+          "direction": "compute"
+        },
+        {
+          "step": 4,
+          "ip_block": "acc_write_port",
+          "direction": "write"
+        }
+      ],
+      "cost_tag": "tensor_compute",
+      "priority": 85,
+      "notes": "dot + ReLU on acc read-out."
+    },
+    {
+      "name": "conv_ws_fused",
+      "match": [
+        "dot"
+      ],
+      "realization_id": "fused_conv_ws",
+      "ip_flow": [
+        {
+          "step": 1,
+          "ip_block": "dma_engine",
+          "direction": "read"
+        },
+        {
+          "step": 2,
+          "ip_block": "im2col_unit",
+          "direction": "compute"
+        },
+        {
+          "step": 3,
+          "ip_block": "systolic_mesh",
+          "direction": "compute"
+        },
+        {
+          "step": 4,
+          "ip_block": "acc_write_port",
+          "direction": "write"
+        },
+        {
+          "step": 5,
+          "ip_block": "dma_engine",
+          "direction": "write"
+        }
+      ],
+      "cost_tag": "tensor_compute_tiled",
+      "priority": 70,
+      "notes": "gemmini_loop_conv_ws: convolution realized as im2col + systolic matmul."
+    }
+  ],
+  "ip_catalog": {
+    "spad_read_port": {
+      "gemmini_block": "spad_read_port",
+      "notes": "SPAD \u2192 mesh input mux (LHS rows)"
+    },
+    "systolic_mesh": {
+      "gemmini_block": "systolic_mesh",
+      "notes": "DIM\u00d7DIM PE array; WS or OS dataflow"
+    },
+    "acc_write_port": {
+      "gemmini_block": "acc_write_port",
+      "notes": "Mesh output \u2192 AccumulatorMem"
+    },
+    "transposer": {
+      "gemmini_block": "transposer",
+      "notes": "On-chip transpose unit inside ExecuteController"
+    },
+    "dma_engine": {
+      "gemmini_block": "dma_engine",
+      "notes": "DRAM \u2192 SPAD double-buffered tiles"
+    },
+    "loop_unroller_fsm": {
+      "gemmini_block": "loop_unroller_fsm",
+      "notes": "CISC gemmini_loop_ws FSM"
+    },
+    "acc_read_port": {
+      "gemmini_block": "acc_read_port",
+      "notes": "Read current ACC value"
+    },
+    "acc_adder": {
+      "gemmini_block": "acc_adder",
+      "notes": "ACC internal adder"
+    },
+    "rocket_core": {
+      "gemmini_block": "rocket_core",
+      "notes": "Host CPU scalar/vector library loop"
+    },
+    "activation_unit": {
+      "gemmini_block": "activation_unit",
+      "notes": "config_ex ReLU comparator on acc read-out"
+    },
+    "store_pool_unit": {
+      "gemmini_block": "store_pool_unit",
+      "notes": "mvout pooling comparators (config_mvout pool params)"
+    },
+    "norm_unit": {
+      "gemmini_block": "norm_unit",
+      "notes": "Experimental normalization engine (I-BERT integer exp)"
+    },
+    "controller_agu": {
+      "gemmini_block": "controller_agu",
+      "notes": "Address generation unit re-reads same location with stride 0"
+    },
+    "mvin_scale_unit": {
+      "gemmini_block": "mvin_scale_unit",
+      "notes": "Scale applied during mvin transfer"
+    },
+    "spad_write_port": {
+      "gemmini_block": "spad_write_port",
+      "notes": "Scaled data into SPAD"
+    },
+    "acc_scale_unit": {
+      "gemmini_block": "acc_scale_unit",
+      "notes": "Scale on acc read-down (accType \u2192 inputType)"
+    }
+  },
+  "cost_tag_catalog": {
+    "tensor_compute": {
+      "description": "Standard systolic matmul cost",
+      "formula_hint": "MACs / peak_mac_throughput"
+    },
+    "tensor_compute_tiled": {
+      "description": "Multi-pass tiling includes DMA load/store overlap",
+      "formula_hint": "tile_passes * per_tile_cost + dma_overhead"
+    },
+    "zero_cost": {
+      "description": "Absorbed into dot; no incremental cost",
+      "formula_hint": "0"
+    },
+    "onchip_compute": {
+      "description": "ACC internal adder cycles",
+      "formula_hint": "elements * acc_op_latency"
+    },
+    "host_fallback": {
+      "description": "CPU scalar loop; slowest path",
+      "formula_hint": "elements * rocket_per_elem_cycles"
+    },
+    "activation_tag": {
+      "description": "Near-zero; piggybacked on acc read-out",
+      "formula_hint": "elements * activation_latency"
+    },
+    "special_function": {
+      "description": "Experimental norm unit",
+      "formula_hint": "elements * norm_latency"
+    },
+    "control_addressing": {
+      "description": "AGU stride reuse; near zero",
+      "formula_hint": "tiny_control_cycles"
+    },
+    "onchip_movement": {
+      "description": "DMA copies expanded tensor",
+      "formula_hint": "expanded_bytes / onchip_bw"
+    },
+    "offchip_movement": {
+      "description": "DRAM read + on-the-fly scale",
+      "formula_hint": "bytes / dram_bw"
+    }
+  }
+}

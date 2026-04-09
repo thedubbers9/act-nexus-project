@@ -12,6 +12,7 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator
 
 
 def _load_cost_module(backend_dir: Path):
@@ -118,6 +119,7 @@ def _write_outputs(rows, instruction_names, out_dir: Path, prefix: str, total_ti
     stacked_path = out_dir / f"{prefix}_instruction_energy_breakdown.png"
     best_ops_raw_path = out_dir / f"{prefix}_best_candidate_op_energy.png"
     best_ops_norm_path = out_dir / f"{prefix}_best_candidate_op_energy_normalized_pct.png"
+    best_ops_table_path = out_dir / f"{prefix}_best_candidate_op_energy_table.csv"
 
     json_path.write_text(json.dumps(rows, indent=2) + "\n", encoding="utf-8")
     _write_csv(rows, instruction_names, csv_path)
@@ -171,27 +173,23 @@ def _write_outputs(rows, instruction_names, out_dir: Path, prefix: str, total_ti
     fig.savefig(normalized_total_path, dpi=180)
     plt.close(fig)
 
+    # Zoomed y-range around the best candidate; show µJ so ticks stay human-readable (no 1e6 offset).
     energy_span = max(totals) - best_total if totals else 0.0
     pad = max(energy_span * 0.15, best_total * 0.002 if best_total else 1.0)
     ymin = max(0.0, best_total - pad)
     ymax = max(totals) + pad if totals else 1.0
+    pj_to_uj = 1e-6
+    totals_uj = [t * pj_to_uj for t in totals]
+    ymin_uj = ymin * pj_to_uj
+    ymax_uj = ymax * pj_to_uj
     fig, ax = plt.subplots(figsize=(max(8, len(labels) * 0.55), 4.5))
-    bars = ax.bar(labels, totals, color="#2f855a")
-    ax.set_ylabel("Total ISA energy (pJ)")
-    ax.set_title(f"{total_title} (Zoomed Around Best Candidate)")
-    ax.set_ylim(ymin, ymax)
+    ax.bar(labels, totals_uj, color="#2f855a")
+    ax.set_ylabel("Total ISA energy (µJ)")
+    ax.set_title(total_title)
+    ax.set_ylim(ymin_uj, ymax_uj)
     ax.grid(axis="y", linestyle=":", alpha=0.4)
-    for bar, total in zip(bars, totals):
-        delta = total - best_total
-        ax.text(
-            bar.get_x() + bar.get_width() / 2.0,
-            total,
-            f"+{delta:.0f}" if delta > 0 else "best",
-            ha="center",
-            va="bottom",
-            fontsize=8,
-            rotation=90 if len(labels) > 12 else 0,
-        )
+    ax.ticklabel_format(axis="y", style="plain", useOffset=False)
+    ax.yaxis.set_major_locator(MaxNLocator(nbins=9))
     if len(labels) > 10:
         ax.tick_params(axis="x", labelrotation=45)
     fig.tight_layout()
@@ -232,9 +230,38 @@ def _write_outputs(rows, instruction_names, out_dir: Path, prefix: str, total_ti
         reverse=True,
     )
     if best_items:
+        miss_readme = out_dir / f"{prefix}_best_candidate_op_energy_README.txt"
+        if miss_readme.exists():
+            miss_readme.unlink()
+
         op_labels = [item[0] for item in best_items]
         op_values = [item[1] for item in best_items]
         op_calls = [item[2] for item in best_items]
+        total_best = best_row["total_energy_pj"] or 1.0
+
+        with best_ops_table_path.open("w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(
+                [
+                    "instruction",
+                    "total_energy_pj",
+                    "calls",
+                    "energy_per_call_pj",
+                    "pct_of_best_total",
+                ]
+            )
+            for name, energy, calls in best_items:
+                per_call = energy / calls if calls else 0.0
+                pct = 100.0 * energy / total_best
+                writer.writerow(
+                    [
+                        name,
+                        f"{energy:.10g}",
+                        calls,
+                        f"{per_call:.10g}",
+                        f"{pct:.6f}",
+                    ]
+                )
 
         fig, ax = plt.subplots(figsize=(max(8, len(op_labels) * 1.1), 4.8))
         bars = ax.bar(op_labels, op_values, color="#3182ce")
@@ -256,7 +283,6 @@ def _write_outputs(rows, instruction_names, out_dir: Path, prefix: str, total_ti
         fig.savefig(best_ops_raw_path, dpi=180)
         plt.close(fig)
 
-        total_best = best_row["total_energy_pj"] or 1.0
         op_pct = [(value / total_best) * 100.0 for value in op_values]
         fig, ax = plt.subplots(figsize=(max(8, len(op_labels) * 1.1), 4.8))
         bars = ax.bar(op_labels, op_pct, color="#d69e2e")
@@ -277,6 +303,21 @@ def _write_outputs(rows, instruction_names, out_dir: Path, prefix: str, total_ti
         fig.tight_layout()
         fig.savefig(best_ops_norm_path, dpi=180)
         plt.close(fig)
+    else:
+        hint = (
+            "No per-instruction breakdown for the best candidate (empty instruction_breakdown).\n"
+            "The Python cost model likely used fallback totals (e.g. missing taidl_instruction_costs.json).\n"
+            "For GEMMINI_17, run: bash scripts/bash/run_gemmini_17_primitives.sh\n"
+        )
+        miss_path = out_dir / f"{prefix}_best_candidate_op_energy_README.txt"
+        miss_path.write_text(
+            hint
+            + f"best_candidate_label={best_row['label']!r} total_energy_pj={best_row['total_energy_pj']!r} "
+            f"used_fallback={best_row['used_fallback']!r}\n",
+            encoding="utf-8",
+        )
+        print(f"Warning: {hint.strip()}", flush=True)
+        print(f"Wrote hint file: {miss_path}", flush=True)
 
     print(f"Wrote summary JSON: {json_path}")
     print(f"Wrote summary CSV:  {csv_path}")
@@ -285,6 +326,7 @@ def _write_outputs(rows, instruction_names, out_dir: Path, prefix: str, total_ti
     print(f"Wrote zoom plot:    {zoomed_total_path}")
     print(f"Wrote stacked plot: {stacked_path}")
     if best_items:
+        print(f"Wrote best-op table: {best_ops_table_path}")
         print(f"Wrote best-op plot: {best_ops_raw_path}")
         print(f"Wrote best-op pct:  {best_ops_norm_path}")
 

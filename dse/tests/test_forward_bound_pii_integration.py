@@ -27,7 +27,7 @@ SAMPLE_PII = textwrap.dedent(
 class ForwardBoundPiiIntegrationTests(unittest.TestCase):
     def test_end_to_end_pii(self):
         repo_root = Path(__file__).resolve().parents[2]
-        config_file = repo_root / "dse" / "config.yaml"
+        config_file = repo_root / "dse" / "config" / "config.yaml"
 
         with tempfile.TemporaryDirectory() as td:
             inp = Path(td) / "0.pii"

@@ -1,144 +1,125 @@
-# Hardware Mapping Interface Package
+# Final Mapping — Realization-First Hardware Interface
 
-This folder is a compact handoff package for the ACT hardware mapping interface.
+## What this is
 
-It explains the layer between:
+A concrete mapping from every TAIDL semantic primitive to physical hardware
+blocks on Gemmini (and generalizable to other accelerators).
 
-- TAIDL semantic instructions
-- primitive decomposition
-- optional fused hardware realization
-- calibrated hardware-cost lookup
+The key idea: **primitive → realization → IP flow → cost tag**.
 
-The goal is to answer one practical question:
+A single primitive (e.g. `broadcast`) can have multiple realizations
+(`virtual_broadcast`, `materialized_broadcast`, `fused_broadcast`), each with
+its own ordered IP pipeline and cost accounting.  Fused patterns override
+per-op fallback when a recognized multi-primitive sequence is detected.
 
-> Given a semantic instruction stream, which hardware IP executes each part, and which calibrated cost bucket should ACT charge?
+## Files
 
-## Files in this folder
+| File | Purpose |
+|------|---------|
+| `primitive_realizations.csv` | Each TAIDL primitive and its possible realizations, with selection condition and Gemmini rationale |
+| `realization_ip_flow.csv` | Ordered IP pipeline steps for each realization |
+| `realization_cost_tags.csv` | Accounting tag and formula hint for each realization |
+| `fused_patterns.json` | Fusion overrides that replace multiple primitives with one combined realization |
+| `generate_final_mapping.py` | Generates `final_mapping.xlsx` and `final_mapping.json` from the CSVs+JSON |
+| `final_mapping.xlsx` | Human-readable multi-sheet workbook (generated) |
+| `final_mapping.json` | Machine-readable interface (generated) |
 
-- [interface_mapping.csv](/scratch/krish/MLIR-hardware-analysis/submodule/act/dse/docs/hardware_mapping_interface_package/interface_mapping.csv)
-  - A flat mapping table showing:
-    - primitive fallback rules
-    - fused pattern overrides
-    - the final abstraction class charged by the estimator
+## Schema
 
-- [interface_layer_meanings.csv](/scratch/krish/MLIR-hardware-analysis/submodule/act/dse/docs/hardware_mapping_interface_package/interface_layer_meanings.csv)
-  - A glossary-style table explaining what each interface layer means and why it exists.
+### primitive_realizations.csv
 
-## Conceptual stack
-
-```text
-TAIDL instruction
-    ->
-semantic primitive graph
-    ->
-mapping interface
-    |- primitive fallback mapping
-    |- fused pattern overrides
-    ->
-hardware IP assignment
-    ->
-abstraction class lookup
-    ->
-calibrated cost from primitive_hw_config.json
+```
+primitive           — TAIDL primitive name
+realization_id      — unique realization name
+is_default          — 1 if this is the default choice for the primitive
+condition           — when to select this realization (human-readable predicate)
+gemmini_rationale   — why this mapping exists on Gemmini hardware
 ```
 
-## How to read the interface
+### realization_ip_flow.csv
 
-### 1. TAIDL stays semantic
+```
+realization_id — links back to primitive_realizations
+step           — ordered step number (1, 2, 3, ...)
+ip_block       — Gemmini IP block name (e.g. systolic_mesh, dma_engine, acc_adder)
+direction      — read / write / compute / control / absorbed / metadata
+notes          — clarification
+```
 
-TAIDL describes the meaning of an instruction, not the implementation shape.
+### realization_cost_tags.csv
 
-Examples:
+```
+realization_id    — links back
+cost_tag          — stable accounting bucket (tensor_compute, onchip_movement, etc.)
+cost_formula_hint — parametric formula skeleton
+notes             — clarification
+```
 
-- `gemm` means matrix multiplication semantics
-- `softmax` means a semantic sequence like `exponential -> reduce_add -> broadcast -> divide`
+### fused_patterns.json
 
-### 2. Primitive decomposition exposes the work
+```json
+{
+  "fused_patterns": [
+    {
+      "name":            "softmax_fused",
+      "match":           ["exponential", "reduce_add", "broadcast", "divide"],
+      "realization_id":  "fused_softmax",
+      "ip_flow":         [{"step": 1, "ip_block": "...", "direction": "..."}],
+      "cost_tag":        "special_function",
+      "priority":        100,
+      "notes":           "..."
+    }
+  ]
+}
+```
 
-The semantic instruction is lowered into primitive operations so ACT can reason about:
+Patterns are tried highest-priority first.  Any primitive consumed by a fused
+pattern is NOT also looked up in per-op fallback.
 
-- fusion opportunities
-- hardware assignment
-- cost accounting
+## Pipeline (how to use it)
 
-### 3. Primitive fallback mapping gives a default hardware home
+```
+TAIDL instruction semantics
+    ↓
+primitive decomposition (e.g. softmax → exp + reduce_add + broadcast + divide)
+    ↓
+normalization (canonical op names that match CSV keys)
+    ↓
+fusion check: try fused_patterns highest-priority-first
+    ↓
+per-op fallback: for unmatched primitives, pick realization from
+                 primitive_realizations (default unless condition selects alt)
+    ↓
+IP flow assignment: look up ordered IP steps for chosen realization
+    ↓
+cost aggregation: use cost_tag × hardware params
+```
 
-Each primitive gets a default hardware IP if no fusion rule applies.
+## Decision rules for ambiguous primitives
 
-Examples:
+### broadcast
+- **virtual_broadcast** (default): single consumer, immediately consumed, no materialization
+- **materialized_broadcast**: result must physically exist as a dense expanded tensor
+- **fused_broadcast**: absorbed inside a fused_pattern (e.g. softmax)
 
-- `dot -> systolic_array_ip`
-- `divide -> vector_div_ip`
-- `reduce_add -> reduction_tree_ip`
+### reshape
+- **logical_view** (default): metadata-only, compatible strides, cost = 0
+- **physical_relayout**: lowering requires actual byte reorder
 
-### 4. Fused patterns override the fallback mapping
+### transpose
+- **explicit_relayout** (default): standalone transpose is almost always physical
+- **folded_into_matmul**: absorbed by following dot via config_ex transpose bits
 
-If the accelerator has a fused block, the interface can replace multiple primitives with one realized IP.
+### convert
+- **standalone_rocket** (default): true dtype cast on CPU
+- **mvin_scale**: scale during DRAM→SPAD load
+- **acc_scale_read**: scale on ACC read-down
 
-Example:
+## Regenerating outputs
 
-- `exponential + reduce_add + broadcast + divide -> softmax_ip`
+```bash
+cd final_mapping/
+python3 generate_final_mapping.py
+```
 
-This is how ACT can model:
-
-- unfused implementations
-- partially fused implementations
-- fully fused accelerator blocks
-
-without changing TAIDL semantics.
-
-### 5. IP names are mapped to abstraction classes
-
-The user-facing IP name is not charged directly.
-Instead, it points to an abstraction class in `primitive_hw_config.json`.
-
-Examples:
-
-- `systolic_array_ip -> tensor_compute`
-- `vector_div_ip -> vector_compute_div`
-- `softmax_ip -> special_math`
-
-This keeps the interface readable for hardware designers while preserving a stable estimator backend.
-
-## Why this layer exists
-
-Without this interface, ACT would have to assume:
-
-- every instruction maps directly to one fixed hardware class
-
-That breaks down as soon as:
-
-- one instruction decomposes into several primitives
-- hardware fuses some but not all primitives
-- different accelerators realize the same semantics differently
-
-This interface solves that problem cleanly by separating:
-
-1. semantic meaning
-2. realization choice
-3. calibrated hardware cost
-
-## Recommended workflow
-
-1. Define TAIDL semantics.
-2. Decompose each instruction into semantic primitives.
-3. Edit the mapping interface:
-   - fallback primitive mappings
-   - fused pattern overrides
-   - IP-to-abstraction-class links
-4. Calibrate the abstraction classes in `primitive_hw_config.json`.
-5. Run ACT cost estimation and plotting.
-
-## Related source files
-
-- [hardware_mapping_interface_spec.md](/scratch/krish/MLIR-hardware-analysis/submodule/act/dse/docs/hardware_mapping_interface_spec.md)
-- [hardware_mapping_interface_example.json](/scratch/krish/MLIR-hardware-analysis/submodule/act/dse/docs/hardware_mapping_interface_example.json)
-- [primitive_hw_config.json](/scratch/krish/MLIR-hardware-analysis/submodule/act/dse/config/primitive_hw_config.json)
-
-## Short takeaway
-
-The interface package exists so ACT can say:
-
-> "This semantic instruction decomposes into these primitives, these primitives are realized by these hardware IPs, and those IPs charge these calibrated abstraction-class costs."
-
-That is the whole contract in one sentence.
+Requires `openpyxl` (`python3 -m pip install --user openpyxl`).

@@ -116,6 +116,17 @@ def _instruction_contrib(ins, width, bytes_per_elem):
         k = width
         ops = 2.0 * m * k * nn
         local = (m * k + k * nn + m * nn) * bytes_per_elem
+    elif name == "gemm_acc":
+        m = width
+        nn = width
+        if isinstance(shape, (list, tuple)) and len(shape) >= 2:
+            if isinstance(shape[0], int) and shape[0] > 0:
+                m = float(shape[0])
+            if isinstance(shape[1], int) and shape[1] > 0:
+                nn = float(shape[1])
+        k = width
+        ops = 2.0 * m * k * nn + m * nn
+        local = (m * k + k * nn + 2.0 * m * nn) * bytes_per_elem
     elif name == "softmax":
         w = width
         if isinstance(shape, (list, tuple)) and len(shape) >= 2 and isinstance(shape[1], int):
@@ -132,6 +143,30 @@ def _instruction_contrib(ins, width, bytes_per_elem):
         if isinstance(shape, (list, tuple)) and len(shape) >= 2 and isinstance(shape[1], int):
             w = float(shape[1])
         # Two local reads + one local write and one FP add per element.
+        ops = n * w
+        local = n * w * bytes_per_elem * 3.0
+    elif name == "relu":
+        w = width
+        if isinstance(shape, (list, tuple)) and len(shape) >= 2 and isinstance(shape[1], int):
+            w = float(shape[1])
+        ops = n * w * 2.0
+        local = n * w * bytes_per_elem * 3.0
+    elif name == "scale":
+        w = width
+        if isinstance(shape, (list, tuple)) and len(shape) >= 2 and isinstance(shape[1], int):
+            w = float(shape[1])
+        ops = n * w
+        local = n * w * bytes_per_elem * 2.0
+    elif name == "layernorm":
+        w = width
+        if isinstance(shape, (list, tuple)) and len(shape) >= 2 and isinstance(shape[1], int):
+            w = float(shape[1])
+        ops = n * w * 3.0
+        local = n * w * bytes_per_elem * 4.0
+    elif name == "maxpool":
+        w = width
+        if isinstance(shape, (list, tuple)) and len(shape) >= 2 and isinstance(shape[1], int):
+            w = float(shape[1])
         ops = n * w
         local = n * w * bytes_per_elem * 3.0
     elif name in set(["Var", "DCC", "constant", "slice", "concat", "broadcast", "reshape", "bitcvt", "copy", "dot", "divide", "exponential", "reduce", "transpose", "convert", "add"]):

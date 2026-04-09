@@ -670,3 +670,68 @@ This is why it is useful early in the compiler flow:
 - Some ops are intentionally ignored or approximated.
 
 Use results as **bounds and trends**, not exact cycle predictions.
+
+---
+
+## 10) Gemmini-style workload + static energy (pJ)
+
+The hardware-mapping package under `dse/docs/hardware_mapping_interface_package/`
+(`final_mapping.json`, fused-pattern rules, CSV sources) documents how semantic
+primitives relate to realizations. For a **quick static energy estimate** on a
+Phase-1 `.pii` trace (same ops as a Gemmini-style TAIDL ISA: `load_*`, `store_*`,
+`mov*`, `gemm`, `gemm_acc`, `softmax`, etc.), run:
+
+```bash
+# from ACT repo root (directory containing dse/)
+export PYTHONPATH=.
+python3 -m dse.energy_workload \
+  --input path/to/candidates.pii_or_dir \
+  --hw_config dse/config/primitive_hw_config.json \
+  --out dse/output/my_run \
+  --plot
+```
+
+This writes `candidate_energy.csv`, per-candidate `energy_detail_*.json`, and
+`plots/energy_by_class_*.png`. It does **not** replace the roofline latency pass;
+run both together with:
+
+```bash
+bash dse/scripts/run_gemmini_dse_demo.sh
+```
+
+Optional: `PII=path/to/your.pii OUT=dse/output/foo bash dse/scripts/run_gemmini_dse_demo.sh`
+
+After compiling a workload with `isa_examples/GEMMINI_17.py`, point `PII` at the
+compiler’s `.pii` output directory to reuse the same plotting path as
+`dse/output/plot_from_log`.
+
+**ISA op-energy charts** (same style as `demo_output/attn_tile64_demo/`, including
+`candidate_total_isa_energy_zoomed.png` and `candidate_best_candidate_op_energy*.png`)
+come from the repo-root script `plot_isa_workload_costs.py`, which reads
+`targets/<ISA>/backend/python/cost/model.py` and the compiler’s candidate `*.py`
+files under your `--log` directory. Example:
+
+First generate **`targets/GEMMINI_17/backend/taidl_instruction_costs.json`** (otherwise totals
+are line-count fallbacks and per-op charts/tables are empty):
+
+```bash
+bash scripts/bash/run_gemmini_17_primitives.sh
+```
+
+Then plot (writes PNGs plus **`candidate_best_candidate_op_energy_table.csv`** — one row per ISA op for the best-cost candidate):
+
+```bash
+python3 plot_isa_workload_costs.py \
+  --backend-dir targets/GEMMINI_17/backend \
+  --candidate-dir log/gemmini_attention64 \
+  --out-dir demo_output/gemmini_attention64
+```
+
+Or run the DSE demo with `ISA_COST_LOG_DIR` set so it invokes that script after
+the forward-bound / DSE plots:
+
+```bash
+ISA_COST_LOG_DIR=log/gemmini_attention64 ISA_COST_OUT=demo_output/gemmini_attention64 \
+  PII=log/gemmini_attention64 OUT=dse/output/gemmini_run \
+  bash dse/scripts/run_gemmini_dse_demo.sh
+```

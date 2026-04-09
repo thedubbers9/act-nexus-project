@@ -82,3 +82,33 @@ def plot_required_bw_vs_target_latency(inverse_rows, out_path):
     plt.savefig(str(out), dpi=180)
     plt.close()
     return True
+
+
+def plot_energy_by_class(by_class_pj, out_path, title="Static energy by abstraction class (pJ)"):
+    """Horizontal bar chart of energy (pJ) per abstraction class."""
+    try:
+        import matplotlib.pyplot as plt
+    except Exception:
+        return False
+
+    items = [(k, float(v)) for k, v in by_class_pj.items() if float(v) > 0]
+    if not items:
+        return False
+    items.sort(key=lambda x: x[1], reverse=True)
+    labels = [x[0] for x in items]
+    vals = [x[1] for x in items]
+
+    plt.figure(figsize=(8, max(3.0, 0.35 * len(labels) + 1.5)))
+    y_pos = range(len(labels))
+    plt.barh(list(y_pos), vals, color="steelblue", alpha=0.85)
+    plt.yticks(list(y_pos), labels)
+    plt.xlabel("Energy (pJ)")
+    plt.title(title)
+    plt.grid(True, axis="x", linestyle="--", alpha=0.25)
+    plt.tight_layout()
+
+    out = Path(out_path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    plt.savefig(str(out), dpi=180)
+    plt.close()
+    return True

@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TAIDL Realization Explorer</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0e17;
+  --surface: #111827;
+  --surface2: #1a2332;
+  --border: #2a3a4f;
+  --text: #e2e8f0;
+  --text-dim: #8899aa;
+  --accent: #38bdf8;
+  --accent2: #818cf8;
+  --green: #34d399;
+  --amber: #fbbf24;
+  --rose: #fb7185;
+  --orange: #fb923c;
+  --teal: #2dd4bf;
+  --pink: #f472b6;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--text); font-family:'DM Sans',sans-serif; overflow-x:hidden; }
+
+.header {
+  padding: 28px 32px 20px;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(135deg, #0a0e17 0%, #111827 100%);
+}
+.header h1 {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 22px;
+  font-weight: 700;
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 6px;
+}
+.header p { color: var(--text-dim); font-size: 13px; }
+
+.layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  height: calc(100vh - 90px);
+}
+
+.sidebar {
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  padding: 12px 0;
+}
+.sidebar::-webkit-scrollbar { width: 4px; }
+.sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+.cat-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text-dim);
+  padding: 14px 16px 6px;
+}
+.prim-btn {
+  display: block;
+  width: 100%;
+  padding: 8px 16px;
+  border: none;
+  background: none;
+  text-align: left;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s;
+  position: relative;
+}
+.prim-btn:hover { background: var(--surface2); }
+.prim-btn.active {
+  background: var(--surface2);
+  color: var(--accent);
+}
+.prim-btn.active::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--accent);
+  border-radius: 0 3px 3px 0;
+}
+.prim-btn .real-count {
+  float: right;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text-dim);
+}
+.prim-btn.active .real-count { background: rgba(56,189,248,0.15); color: var(--accent); }
+
+.main {
+  overflow-y: auto;
+  padding: 24px 28px;
+}
+.main::-webkit-scrollbar { width: 6px; }
+.main::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+.empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 60vh;
+  color: var(--text-dim);
+  font-size: 15px;
+}
+
+.prim-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.prim-header h2 {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 24px;
+  font-weight: 700;
+}
+.prim-type-badge {
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.badge-compute { background: rgba(56,189,248,0.15); color: var(--accent); }
+.badge-data { background: rgba(251,191,36,0.15); color: var(--amber); }
+.badge-layout { background: rgba(244,114,182,0.15); color: var(--pink); }
+.badge-meta { background: rgba(148,163,184,0.15); color: var(--text-dim); }
+
+.real-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 14px;
+  overflow: hidden;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+.real-card:hover { border-color: var(--accent); }
+.real-card.expanded { border-color: var(--accent); }
+.real-card.is-default { border-left: 3px solid var(--green); }
+
+.real-card-header {
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.real-name {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  font-weight: 600;
+}
+.real-badges { display: flex; gap: 6px; align-items: center; }
+.default-badge {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 700;
+  background: rgba(52,211,153,0.15);
+  color: var(--green);
+}
+.cost-badge {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+.cost-zero { background: rgba(52,211,153,0.1); color: var(--green); }
+.cost-cheap { background: rgba(45,212,191,0.1); color: var(--teal); }
+.cost-medium { background: rgba(251,191,36,0.1); color: var(--amber); }
+.cost-expensive { background: rgba(251,113,133,0.1); color: var(--rose); }
+
+.chevron {
+  font-size: 12px;
+  color: var(--text-dim);
+  transition: transform 0.2s;
+}
+.expanded .chevron { transform: rotate(90deg); }
+
+.real-card-body {
+  display: none;
+  padding: 0 18px 16px;
+}
+.expanded .real-card-body { display: block; }
+
+.info-row {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 4px;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+.info-label { color: var(--text-dim); font-weight: 500; }
+.info-value { color: var(--text); }
+
+.ip-flow {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin: 12px 0 8px;
+  flex-wrap: wrap;
+  row-gap: 6px;
+}
+.ip-block {
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.ip-block.dir-read { background: rgba(56,189,248,0.12); color: var(--accent); border: 1px solid rgba(56,189,248,0.25); }
+.ip-block.dir-compute { background: rgba(251,191,36,0.12); color: var(--amber); border: 1px solid rgba(251,191,36,0.25); }
+.ip-block.dir-write { background: rgba(52,211,153,0.12); color: var(--green); border: 1px solid rgba(52,211,153,0.25); }
+.ip-block.dir-control { background: rgba(129,140,248,0.12); color: var(--accent2); border: 1px solid rgba(129,140,248,0.25); }
+.ip-block.dir-absorbed, .ip-block.dir-metadata { background: rgba(148,163,184,0.08); color: var(--text-dim); border: 1px solid rgba(148,163,184,0.15); }
+
+.ip-arrow {
+  color: var(--text-dim);
+  font-size: 14px;
+  margin: 0 4px;
+  flex-shrink: 0;
+}
+
+.decision-section {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+.decision-section h3 {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 15px;
+  color: var(--accent2);
+  margin-bottom: 12px;
+}
+.decision-tree {
+  background: var(--surface);
+  border-radius: 10px;
+  padding: 16px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  line-height: 2.2;
+}
+.dt-if { color: var(--rose); font-weight: 700; }
+.dt-then { color: var(--green); }
+.dt-else { color: var(--amber); font-weight: 700; }
+.dt-arrow { color: var(--text-dim); }
+.dt-real { color: var(--accent); font-weight: 600; }
+
+.fused-section {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+.fused-section h3 {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 15px;
+  color: var(--orange);
+  margin-bottom: 12px;
+}
+.fused-card {
+  background: var(--surface);
+  border: 1px solid rgba(251,146,60,0.25);
+  border-radius: 10px;
+  padding: 14px 18px;
+  margin-bottom: 10px;
+}
+.fused-card .fused-name {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--orange);
+}
+.fused-match {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--text-dim);
+  margin: 6px 0;
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>primitive &rarr; realization &rarr; IP flow</h1>
+  <p>Click any TAIDL primitive to see all its possible realizations on Gemmini, the decision conditions, and the IP pipeline. Green left border = default realization.</p>
+</div>
+
+<div class="layout">
+  <div class="sidebar" id="sidebar"></div>
+  <div class="main" id="main">
+    <div class="empty-state">Select a primitive from the left panel</div>
+  </div>
+</div>
+
+<script>
+const DATA = {
+  primitives: {
+    dot: { type: 'compute', realizations: [
+      { id: 'systolic_gemm', isDefault: true, condition: 'Standard matmul; operands fit in SPAD', rationale: 'config_ex + matmul.preload + matmul.compute; result in ACC.', costTag: 'tensor_compute', formula: 'MACs / peak_mac_throughput', flow: [{ip:'spad_read_port',dir:'read',note:'LHS rows'},{ip:'spad_read_port',dir:'read',note:'RHS cols'},{ip:'systolic_mesh',dir:'compute',note:'DIM\u00d7DIM PE array'},{ip:'acc_write_port',dir:'write',note:'\u2192 AccumulatorMem'}] },
+      { id: 'systolic_gemm_transposed', isDefault: false, condition: 'One operand requires transpose', rationale: 'config_ex transpose bits set; on-chip transposer feeds mesh.', costTag: 'tensor_compute', formula: 'MACs / peak_mac_throughput', flow: [{ip:'spad_read_port',dir:'read',note:'\u2192 transposer'},{ip:'transposer',dir:'compute',note:'On-chip transpose'},{ip:'systolic_mesh',dir:'compute',note:'Transposed data feeds mesh'},{ip:'acc_write_port',dir:'write',note:'\u2192 ACC'}] },
+      { id: 'loop_ws_tiled', isDefault: false, condition: 'Tile larger than DIM; compiler emits CISC', rationale: 'gemmini_loop_ws: FSM handles double-buffered tiling.', costTag: 'tensor_compute_tiled', formula: 'tile_passes * per_tile_cost + dma_overhead', flow: [{ip:'dma_engine',dir:'read',note:'DRAM \u2192 SPAD tiles'},{ip:'loop_unroller_fsm',dir:'control',note:'CISC FSM'},{ip:'spad_read_port',dir:'read',note:'to mesh'},{ip:'systolic_mesh',dir:'compute',note:'Tile compute'},{ip:'acc_write_port',dir:'write',note:'Partials \u2192 ACC'},{ip:'dma_engine',dir:'write',note:'ACC \u2192 DRAM'}] },
+    ]},
+    add: { type: 'compute', realizations: [
+      { id: 'fused_bias_in_matmul', isDefault: false, condition: 'Add is fused as D operand in OS matmul', rationale: 'Absorbed into matmul.preload D preload. Cost folded into dot.', costTag: 'zero_cost', formula: '0', flow: [{ip:'none',dir:'absorbed',note:'Folded into matmul.preload'}] },
+      { id: 'acc_accumulate', isDefault: false, condition: 'Operand in ACC; in-place accumulation', rationale: 'ACC write with accumulate bit set (bit 30). Uses acc adder units.', costTag: 'onchip_compute', formula: 'elements * acc_op_latency', flow: [{ip:'acc_read_port',dir:'read',note:'Read ACC value'},{ip:'acc_adder',dir:'compute',note:'ACC internal adder'},{ip:'acc_write_port',dir:'write',note:'Write result'}] },
+      { id: 'standalone_rocket', isDefault: true, condition: 'General elementwise add; no fusion matched', rationale: 'Rocket core library loop.', costTag: 'host_fallback', formula: 'elements * rocket_per_elem_cycles', flow: [{ip:'rocket_core',dir:'compute',note:'CPU scalar loop'}] },
+    ]},
+    subtract: { type: 'compute', realizations: [
+      { id: 'acc_path', isDefault: false, condition: 'Operand in ACC; same adder family', rationale: 'ACC adder units; negate + accumulate.', costTag: 'onchip_compute', formula: 'elements * acc_op_latency', flow: [{ip:'acc_read_port',dir:'read',note:'Read ACC'},{ip:'acc_adder',dir:'compute',note:'Negate + add'},{ip:'acc_write_port',dir:'write',note:'Write result'}] },
+      { id: 'standalone_rocket', isDefault: true, condition: 'General elementwise subtract', rationale: 'Rocket core library.', costTag: 'host_fallback', formula: 'elements * rocket_per_elem_cycles', flow: [{ip:'rocket_core',dir:'compute',note:'CPU scalar loop'}] },
+    ]},
+    multiply: { type: 'compute', realizations: [
+      { id: 'standalone_rocket', isDefault: true, condition: 'Elementwise multiply (never systolic)', rationale: 'No dedicated ewise-mul on Gemmini. Do NOT map to systolic.', costTag: 'host_fallback', formula: 'elements * rocket_per_elem_cycles', flow: [{ip:'rocket_core',dir:'compute',note:'CPU scalar loop'}] },
+    ]},
+    divide: { type: 'compute', realizations: [
+      { id: 'standalone_rocket', isDefault: true, condition: 'General elementwise divide', rationale: 'No divider in Gemmini datapath.', costTag: 'host_fallback', formula: 'elements * rocket_per_elem_cycles', flow: [{ip:'rocket_core',dir:'compute',note:'CPU scalar loop'}] },
+      { id: 'fused_quant_scale', isDefault: false, condition: 'Divide by constant power-of-2; fits acc scale-down', rationale: 'Absorb into acc read-down scaling (config_ex scale). Cost near zero.', costTag: 'zero_cost', formula: 'tiny_scale_cycles', flow: [{ip:'acc_scale_unit',dir:'compute',note:'Scale on acc read-down'}] },
+    ]},
+    maximum: { type: 'compute', realizations: [
+      { id: 'relu_activation', isDefault: false, condition: 'Pattern is max(x, 0) i.e. ReLU', rationale: 'config_ex activation bit = 1. Applied on acc read-out.', costTag: 'activation_tag', formula: 'elements * activation_latency', flow: [{ip:'acc_read_port',dir:'read',note:'Read from ACC'},{ip:'activation_unit',dir:'compute',note:'ReLU comparator'},{ip:'acc_write_port',dir:'write',note:'Write clamped result'}] },
+      { id: 'maxpool_on_store', isDefault: false, condition: 'Pooling pattern on mvout path', rationale: 'config_mvout pool params + mvout comparators.', costTag: 'onchip_compute', formula: 'pooled_elements * pool_compare_latency', flow: [{ip:'acc_read_port',dir:'read',note:'Read from ACC'},{ip:'store_pool_unit',dir:'compute',note:'mvout pooling comparators'},{ip:'dma_engine',dir:'write',note:'Pooled output \u2192 DRAM'}] },
+      { id: 'standalone_rocket', isDefault: true, condition: 'General two-tensor max', rationale: 'Rocket core library.', costTag: 'host_fallback', formula: 'elements * rocket_per_elem_cycles', flow: [{ip:'rocket_core',dir:'compute',note:'CPU scalar loop'}] },
+    ]},
+    minimum: { type: 'compute', realizations: [
+      { id: 'standalone_rocket', isDefault: true, condition: 'No native min on Gemmini', rationale: 'Rocket core library.', costTag: 'host_fallback', formula: 'elements * rocket_per_elem_cycles', flow: [{ip:'rocket_core',dir:'compute',note:'CPU scalar loop'}] },
+    ]},
+    xor: { type: 'compute', realizations: [
+      { id: 'standalone_rocket', isDefault: true, condition: 'No bitwise vector ISA on Gemmini', rationale: 'Rocket core.', costTag: 'host_fallback', formula: 'elements * rocket_per_elem_cycles', flow: [{ip:'rocket_core',dir:'compute',note:'CPU scalar loop'}] },
+    ]},
+    exponential: { type: 'compute', realizations: [
+      { id: 'config_norm_path', isDefault: false, condition: 'Integer-only variant (I-BERT style); config_norm enabled', rationale: 'Experimental config_norm. Only for integer exp subset.', costTag: 'special_function', formula: 'elements * norm_latency', flow: [{ip:'acc_read_port',dir:'read',note:'Read from ACC'},{ip:'norm_unit',dir:'compute',note:'I-BERT integer exp'},{ip:'acc_write_port',dir:'write',note:'Result \u2192 ACC'}] },
+      { id: 'standalone_rocket', isDefault: true, condition: 'General exp', rationale: 'Rocket core library (or SFU if you add one).', costTag: 'host_fallback', formula: 'elements * rocket_per_elem_cycles', flow: [{ip:'rocket_core',dir:'compute',note:'CPU scalar loop'}] },
+    ]},
+    reduce_add: { type: 'compute', realizations: [
+      { id: 'acc_partial_passes', isDefault: true, condition: 'Sum reduction; default on-device path', rationale: 'Multi-pass ACC partials; may need Rocket for tail.', costTag: 'onchip_compute', formula: 'passes * DIM * mesh_latency', flow: [{ip:'spad_read_port',dir:'read',note:'Read from SPAD'},{ip:'systolic_mesh',dir:'compute',note:'Partial sums'},{ip:'acc_adder',dir:'compute',note:'Accumulate'},{ip:'acc_write_port',dir:'write',note:'Write final'}] },
+      { id: 'standalone_rocket', isDefault: false, condition: 'Tiny reduction or host-preferred schedule', rationale: 'Rocket core library.', costTag: 'host_fallback', formula: 'elements * rocket_per_elem_cycles', flow: [{ip:'rocket_core',dir:'compute',note:'CPU scalar loop'}] },
+    ]},
+    reduce: { type: 'compute', realizations: [
+      { id: 'acc_partial_passes', isDefault: false, condition: 'Combiner is add-like; systolic-friendly dim', rationale: 'Multi-pass through systolic+ACC partials.', costTag: 'onchip_compute', formula: 'passes * DIM * mesh_latency', flow: [{ip:'spad_read_port',dir:'read',note:'Read from SPAD'},{ip:'systolic_mesh',dir:'compute',note:'Partial sums'},{ip:'acc_adder',dir:'compute',note:'Accumulate'},{ip:'acc_write_port',dir:'write',note:'Write final'}] },
+      { id: 'standalone_rocket', isDefault: true, condition: 'General reduction or non-add combiner', rationale: 'Rocket core library.', costTag: 'host_fallback', formula: 'elements * rocket_per_elem_cycles', flow: [{ip:'rocket_core',dir:'compute',note:'CPU scalar loop'}] },
+    ]},
+    broadcast: { type: 'layout', realizations: [
+      { id: 'virtual_broadcast', isDefault: true, condition: 'Single consumer; immediately consumed; no materialization', rationale: 'Controller AGU / stride-based reuse. Cost \u2248 0.', costTag: 'control_addressing', formula: 'tiny_control_cycles', flow: [{ip:'controller_agu',dir:'control',note:'Stride-0 re-read'}] },
+      { id: 'materialized_broadcast', isDefault: false, condition: 'Result must physically exist as dense tensor', rationale: 'DMA engine writes expanded tensor. Cost = tensor bytes.', costTag: 'onchip_movement', formula: 'expanded_bytes / onchip_bw', flow: [{ip:'dma_engine',dir:'read',note:'Read source'},{ip:'dma_engine',dir:'write',note:'Write expanded tensor'}] },
+      { id: 'fused_broadcast', isDefault: false, condition: 'Absorbed inside a fused_pattern (e.g. softmax)', rationale: 'No separate cost; fusion region owns accounting.', costTag: 'zero_cost', formula: '0', flow: [{ip:'none',dir:'absorbed',note:'Consumer handles addressing'}] },
+    ]},
+    reshape: { type: 'layout', realizations: [
+      { id: 'logical_view', isDefault: true, condition: 'No physical relayout needed; compatible row-major strides', rationale: 'Metadata only. Cost = 0.', costTag: 'zero_cost', formula: '0', flow: [{ip:'none',dir:'metadata',note:'Metadata reinterpretation'}] },
+      { id: 'physical_relayout', isDefault: false, condition: 'Lowering requires actual byte reorder', rationale: 'DMA + relayout path. Cost = tensor bytes.', costTag: 'onchip_movement', formula: 'tensor_bytes / onchip_bw', flow: [{ip:'dma_engine',dir:'read',note:'Read source'},{ip:'dma_engine',dir:'write',note:'Write reordered'}] },
+    ]},
+    transpose: { type: 'layout', realizations: [
+      { id: 'folded_into_matmul', isDefault: false, condition: 'Transpose absorbed by following dot; config_ex transpose bits', rationale: 'On-chip transposer inside ExecuteController. No separate cost.', costTag: 'zero_cost', formula: '0', flow: [{ip:'transposer',dir:'compute',note:'Folded into consumer matmul'}] },
+      { id: 'explicit_relayout', isDefault: true, condition: 'Standalone transpose; not folded', rationale: 'DMA-based relayout. Cost = tensor bytes.', costTag: 'onchip_movement', formula: 'tensor_bytes / onchip_bw', flow: [{ip:'dma_engine',dir:'read',note:'Read source layout'},{ip:'transposer',dir:'compute',note:'Transpose bytes'},{ip:'dma_engine',dir:'write',note:'Write transposed'}] },
+    ]},
+    bitcast_convert: { type: 'layout', realizations: [
+      { id: 'logical_view', isDefault: true, condition: 'Reinterpret bits; no movement', rationale: 'Metadata only. Cost = 0.', costTag: 'zero_cost', formula: '0', flow: [{ip:'none',dir:'metadata',note:'Metadata reinterpretation'}] },
+      { id: 'physical_copy', isDefault: false, condition: 'Backend cannot keep as view', rationale: 'DMA copy. Cost = tensor bytes.', costTag: 'onchip_movement', formula: 'tensor_bytes / onchip_bw', flow: [{ip:'dma_engine',dir:'read',note:'Read source'},{ip:'dma_engine',dir:'write',note:'Write to new location'}] },
+    ]},
+    convert: { type: 'data', realizations: [
+      { id: 'mvin_scale', isDefault: false, condition: 'Quant path; scale during load (mvin scale fields)', rationale: 'Scale applied by mvin hardware during DRAM\u2192SPAD transfer.', costTag: 'offchip_movement', formula: 'bytes / dram_bw', flow: [{ip:'dma_engine',dir:'read',note:'DRAM read + scale HW'},{ip:'mvin_scale_unit',dir:'compute',note:'Scale during transfer'},{ip:'spad_write_port',dir:'write',note:'Scaled data \u2192 SPAD'}] },
+      { id: 'acc_scale_read', isDefault: false, condition: 'Quant path; scale on acc read-down to inputType', rationale: 'Acc read-down scaling. accType\u2192inputType.', costTag: 'onchip_compute', formula: 'elements * scale_latency', flow: [{ip:'acc_read_port',dir:'read',note:'Read from ACC'},{ip:'acc_scale_unit',dir:'compute',note:'Scale read-down'},{ip:'spad_write_port',dir:'write',note:'Scaled \u2192 SPAD'}] },
+      { id: 'standalone_rocket', isDefault: true, condition: 'General dtype cast', rationale: 'Rocket core. True value conversion.', costTag: 'host_fallback', formula: 'elements * rocket_per_elem_cycles', flow: [{ip:'rocket_core',dir:'compute',note:'CPU scalar loop'}] },
+    ]},
+    copy: { type: 'data', realizations: [
+      { id: 'dma_offchip', isDefault: false, condition: 'DRAM \u2194 SPAD/ACC', rationale: 'mvin / mvout via LoadController / StoreController.', costTag: 'offchip_movement', formula: 'bytes / dram_bw', flow: [{ip:'dma_engine',dir:'read',note:'mvin / mvout'},{ip:'spad_write_port',dir:'write',note:'Data \u2192 SPAD/ACC'}] },
+      { id: 'onchip_move', isDefault: true, condition: 'SPAD \u2194 ACC or SPAD \u2194 SPAD', rationale: 'Internal datapath (mov/mov_rev). Cost = on-chip bytes.', costTag: 'onchip_movement', formula: 'bytes / onchip_bw', flow: [{ip:'spad_read_port',dir:'read',note:'Source scratchpad'},{ip:'spad_write_port',dir:'write',note:'Destination scratchpad'}] },
+    ]},
+    slice: { type: 'data', realizations: [
+      { id: 'affine_addressing', isDefault: true, condition: 'Submatrix via mvin/mvout row/col counts + strides', rationale: 'Addressing only; no separate slice engine.', costTag: 'control_addressing', formula: 'tiny_control_cycles', flow: [{ip:'controller_agu',dir:'control',note:'Row/col sub-matrix selection'}] },
+      { id: 'dma_extract', isDefault: false, condition: 'Sliced result must be standalone dense tensor', rationale: 'DMA copy to new SPAD region.', costTag: 'onchip_movement', formula: 'slice_bytes / onchip_bw', flow: [{ip:'dma_engine',dir:'read',note:'Read slice source'},{ip:'spad_write_port',dir:'write',note:'Write dense slice'}] },
+    ]},
+    concatenate: { type: 'data', realizations: [
+      { id: 'dma_staging', isDefault: true, condition: 'Stage operands into adjacent SPAD/ACC regions', rationale: 'Sequential mvins. Cost = total bytes.', costTag: 'onchip_movement', formula: 'total_bytes / onchip_bw', flow: [{ip:'dma_engine',dir:'read',note:'Read each operand'},{ip:'spad_write_port',dir:'write',note:'Adjacent SPAD banks'}] },
+    ]},
+    dynamic_update_slice: { type: 'data', realizations: [
+      { id: 'standalone_rocket', isDefault: true, condition: 'Irregular indexed update', rationale: 'No gather/scatter on Gemmini; Rocket scalar loops.', costTag: 'host_fallback', formula: 'elements * rocket_per_elem_cycles', flow: [{ip:'rocket_core',dir:'compute',note:'CPU scalar loop'}] },
+    ]},
+    parameter: { type: 'meta', realizations: [
+      { id: 'host_to_device', isDefault: true, condition: 'Tensor input from host', rationale: 'DRAM \u2192 mvin into SPAD or ACC.', costTag: 'offchip_movement', formula: 'bytes / dram_bw', flow: [{ip:'dma_engine',dir:'read',note:'DRAM host memory'},{ip:'spad_write_port',dir:'write',note:'Into SPAD or ACC'}] },
+    ]},
+    constant: { type: 'meta', realizations: [
+      { id: 'host_to_device', isDefault: true, condition: 'Literal from host memory', rationale: 'DRAM \u2192 mvin into SPAD or ACC.', costTag: 'offchip_movement', formula: 'bytes / dram_bw', flow: [{ip:'dma_engine',dir:'read',note:'DRAM host memory'},{ip:'spad_write_port',dir:'write',note:'Into SPAD or ACC'}] },
+    ]},
+    select_lt: { type: 'compute', realizations: [
+      { id: 'standalone_rocket', isDefault: true, condition: 'TAIDL composite; expand to compare+select', rationale: 'Rocket core.', costTag: 'host_fallback', formula: 'elements * rocket_per_elem_cycles', flow: [{ip:'rocket_core',dir:'compute',note:'CPU scalar loop'}] },
+      { id: 'fused_relu_like', isDefault: false, condition: 'Pattern recognized as max(x,0) after expansion', rationale: 'Folds into config_ex ReLU.', costTag: 'activation_tag', formula: 'elements * activation_latency', flow: [{ip:'activation_unit',dir:'compute',note:'ReLU folded'}] },
+    ]},
+    select_eq_var: { type: 'compute', realizations: [
+      { id: 'standalone_rocket', isDefault: true, condition: 'TAIDL composite; expand to compare+and+select', rationale: 'Rocket core.', costTag: 'host_fallback', formula: 'elements * rocket_per_elem_cycles', flow: [{ip:'rocket_core',dir:'compute',note:'CPU scalar loop'}] },
+    ]},
+  },
+  fusedPatterns: [
+    { name: 'softmax_fused', match: ['exponential','reduce_add','broadcast','divide'], priority: 100, costTag: 'special_function', flow: [{ip:'acc_read_port',dir:'read'},{ip:'norm_unit',dir:'compute'},{ip:'acc_write_port',dir:'write'}], notes: 'Full softmax fused. broadcast becomes internal address reuse.' },
+    { name: 'matmul_bias_relu', match: ['dot','add','maximum'], priority: 90, costTag: 'tensor_compute', flow: [{ip:'spad_read_port',dir:'read'},{ip:'systolic_mesh',dir:'compute'},{ip:'acc_adder',dir:'compute'},{ip:'activation_unit',dir:'compute'},{ip:'acc_write_port',dir:'write'}], notes: 'dot + bias (D preload) + ReLU in one pass.' },
+    { name: 'matmul_bias', match: ['dot','add'], priority: 85, costTag: 'tensor_compute', flow: [{ip:'spad_read_port',dir:'read'},{ip:'systolic_mesh',dir:'compute'},{ip:'acc_adder',dir:'compute'},{ip:'acc_write_port',dir:'write'}], notes: 'dot + bias via D preload.' },
+    { name: 'matmul_relu', match: ['dot','maximum'], priority: 85, costTag: 'tensor_compute', flow: [{ip:'spad_read_port',dir:'read'},{ip:'systolic_mesh',dir:'compute'},{ip:'activation_unit',dir:'compute'},{ip:'acc_write_port',dir:'write'}], notes: 'dot + ReLU on acc read-out.' },
+    { name: 'exp_reduce_fused', match: ['exponential','reduce_add'], priority: 80, costTag: 'special_function', flow: [{ip:'acc_read_port',dir:'read'},{ip:'norm_unit',dir:'compute'},{ip:'acc_write_port',dir:'write'}], notes: 'Partial fusion: exp+reduce fused.' },
+    { name: 'conv_ws_fused', match: ['dot'], priority: 70, costTag: 'tensor_compute_tiled', flow: [{ip:'dma_engine',dir:'read'},{ip:'im2col_unit',dir:'compute'},{ip:'systolic_mesh',dir:'compute'},{ip:'acc_write_port',dir:'write'},{ip:'dma_engine',dir:'write'}], notes: 'Convolution as im2col + systolic matmul.' },
+  ]
+};
+
+const categories = {
+  'Compute': ['dot','add','subtract','multiply','divide','maximum','minimum','xor','exponential','reduce_add','reduce','select_lt','select_eq_var'],
+  'Layout': ['broadcast','reshape','transpose','bitcast_convert'],
+  'Data Movement': ['copy','convert','slice','concatenate','dynamic_update_slice'],
+  'Meta': ['parameter','constant'],
+};
+
+const costColors = {
+  'zero_cost': 'cost-zero',
+  'control_addressing': 'cost-cheap',
+  'activation_tag': 'cost-cheap',
+  'onchip_compute': 'cost-medium',
+  'special_function': 'cost-medium',
+  'onchip_movement': 'cost-medium',
+  'offchip_movement': 'cost-expensive',
+  'host_fallback': 'cost-expensive',
+  'tensor_compute': 'cost-medium',
+  'tensor_compute_tiled': 'cost-expensive',
+};
+
+const typeClasses = {
+  compute: 'badge-compute', data: 'badge-data',
+  layout: 'badge-layout', meta: 'badge-meta',
+};
+
+function buildSidebar() {
+  const sb = document.getElementById('sidebar');
+  let html = '';
+  for (const [cat, prims] of Object.entries(categories)) {
+    html += `<div class="cat-label">${cat}</div>`;
+    for (const p of prims) {
+      const d = DATA.primitives[p];
+      if (!d) continue;
+      const n = d.realizations.length;
+      html += `<button class="prim-btn" data-prim="${p}">${p}<span class="real-count">${n}</span></button>`;
+    }
+  }
+  sb.innerHTML = html;
+  sb.querySelectorAll('.prim-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      sb.querySelectorAll('.prim-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderPrimitive(btn.dataset.prim);
+    });
+  });
+}
+
+function renderFlow(flow) {
+  return flow.map((f, i) => {
+    const arrow = i < flow.length - 1 ? '<span class="ip-arrow">\u2192</span>' : '';
+    return `<div class="ip-block dir-${f.dir}" title="${f.note || ''}">${f.ip}</div>${arrow}`;
+  }).join('');
+}
+
+function renderPrimitive(name) {
+  const d = DATA.primitives[name];
+  const main = document.getElementById('main');
+  const typeLabel = d.type.charAt(0).toUpperCase() + d.type.slice(1);
+  const typeCls = typeClasses[d.type] || 'badge-meta';
+
+  let html = `<div class="prim-header">
+    <h2>${name}</h2>
+    <span class="prim-type-badge ${typeCls}">${typeLabel}</span>
+    <span style="color:var(--text-dim);font-size:13px;">${d.realizations.length} realization${d.realizations.length>1?'s':''}</span>
+  </div>`;
+
+  for (const r of d.realizations) {
+    const costCls = costColors[r.costTag] || 'cost-medium';
+    html += `<div class="real-card ${r.isDefault ? 'is-default' : ''}" onclick="this.classList.toggle('expanded')">
+      <div class="real-card-header">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="real-name">${r.id}</span>
+          <div class="real-badges">
+            ${r.isDefault ? '<span class="default-badge">DEFAULT</span>' : ''}
+            <span class="cost-badge ${costCls}">${r.costTag}</span>
+          </div>
+        </div>
+        <span class="chevron">\u25B6</span>
+      </div>
+      <div class="real-card-body">
+        <div class="info-row"><span class="info-label">Condition</span><span class="info-value">${r.condition}</span></div>
+        <div class="info-row"><span class="info-label">Cost formula</span><span class="info-value" style="font-family:'JetBrains Mono',monospace;font-size:12px">${r.formula}</span></div>
+        <div class="info-row"><span class="info-label">Rationale</span><span class="info-value" style="font-size:12px;color:var(--text-dim)">${r.rationale}</span></div>
+        <div style="margin-top:10px;margin-bottom:4px;font-size:11px;color:var(--text-dim);font-weight:600;text-transform:uppercase;letter-spacing:1px">IP Pipeline</div>
+        <div class="ip-flow">${renderFlow(r.flow)}</div>
+      </div>
+    </div>`;
+  }
+
+  if (d.realizations.length > 1) {
+    html += `<div class="decision-section"><h3>When to choose which?</h3><div class="decision-tree">`;
+    const nonDefault = d.realizations.filter(r => !r.isDefault);
+    const defaultR = d.realizations.find(r => r.isDefault);
+    for (const r of nonDefault) {
+      html += `<span class="dt-if">IF</span> ${r.condition} <span class="dt-arrow">\u2192</span> <span class="dt-real">${r.id}</span><br>`;
+    }
+    if (defaultR) {
+      html += `<span class="dt-else">ELSE</span> <span class="dt-arrow">\u2192</span> <span class="dt-real">${defaultR.id}</span> <span style="color:var(--green)">(default)</span>`;
+    }
+    html += `</div></div>`;
+  }
+
+  const relevant = DATA.fusedPatterns.filter(fp => fp.match.includes(name));
+  if (relevant.length > 0) {
+    html += `<div class="fused-section"><h3>Fused Patterns Involving ${name}</h3>`;
+    for (const fp of relevant) {
+      html += `<div class="fused-card">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span class="fused-name">${fp.name}</span>
+          <span style="font-size:10px;color:var(--text-dim)">priority: ${fp.priority}</span>
+        </div>
+        <div class="fused-match">${fp.match.join(' + ')}</div>
+        <div class="ip-flow" style="margin:8px 0">${renderFlow(fp.flow)}</div>
+        <div style="font-size:11px;color:var(--text-dim)">${fp.notes}</div>
+      </div>`;
+    }
+    html += `</div>`;
+  }
+
+  main.innerHTML = html;
+}
+
+buildSidebar();
+document.querySelector('[data-prim="dot"]').click();
+</script>
+</body>
+</html>
