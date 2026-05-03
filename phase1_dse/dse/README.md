@@ -286,11 +286,10 @@ Example:
 
 The `abstraction_class` then looks up calibrated values from `dse/config/primitive_hw_config.json`.
 
-For the full interface definition and a presentation-ready summary, see:
+For the full interface definition (CSV/JSON schema, fusion rules, regeneration), see:
 
-- `dse/docs/hardware_mapping_interface_spec.md`
-- `dse/docs/hardware_mapping_interface_example.json`
-- `dse/docs/hardware_mapping_project_slides.md`
+- `dse/hardware_interface/hardware_mapping_interface_package/README.md`
+- `dse/hardware_interface/isa_package/` — auxiliary mapping generators (e.g. `generate_gemmini_simple_mapping.py`)
 
 ---
 
@@ -687,7 +686,7 @@ Use results as **bounds and trends**, not exact cycle predictions.
 
 ## 10) Gemmini-style workload + static energy (pJ)
 
-The hardware-mapping package under `dse/docs/hardware_mapping_interface_package/`
+The hardware-mapping package under `dse/hardware_interface/hardware_mapping_interface_package/`
 (`final_mapping.json`, fused-pattern rules, CSV sources) documents how semantic
 primitives relate to realizations. For a **quick static energy estimate** on a
 Phase-1 `.pii` trace (same ops as a Gemmini-style TAIDL ISA: `load_*`, `store_*`,

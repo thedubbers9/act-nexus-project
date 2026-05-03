@@ -3,7 +3,7 @@
 # (Gemmini anchor attention). Upstream used attention_tile64_workable.hlo — removed; see ACT_CALIBRATION_FORK_NOTES.md.
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 if [[ -z "${PYTHON_BIN:-}" ]]; then
   if [[ -x "/opt/miniconda/envs/act/bin/python3" ]]; then
     PYTHON_BIN="/opt/miniconda/envs/act/bin/python3"

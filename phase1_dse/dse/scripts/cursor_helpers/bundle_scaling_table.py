@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Summarize multiple pt_comparison_bundle.json files for scaling / trend review.
 
-Scans .cursor/docs/artifacts/runs/**/pt_comparison_bundle.json (excluding _template),
+Scans docs/calibration/run_bundles/**/pt_comparison_bundle.json (excluding _template),
 writes a small CSV: workload_label, bundle path, pct_error_vs_pt, window energy, etc.
 
 No large binary output.
@@ -14,8 +14,8 @@ from pathlib import Path
 
 
 def main():
-    submodule = Path(__file__).resolve().parents[2]
-    root = submodule / ".cursor" / "docs" / "artifacts" / "runs"
+    mlir_root = Path(__file__).resolve().parent.parents[5]
+    root = mlir_root / "docs" / "calibration" / "run_bundles"
     rows = []
     for p in sorted(root.glob("**/pt_comparison_bundle.json")):
         if "_template" in p.parts:
@@ -31,7 +31,7 @@ def main():
             {
                 "workload_label": data.get("workload_label", ""),
                 "dut_scope": data.get("dut_scope", ""),
-                "bundle_relpath": str(p.relative_to(submodule)),
+                "bundle_relpath": str(p.relative_to(mlir_root)),
                 "pt_window_energy_uj": win.get("energy_uj", ""),
                 "act_total_energy_uj": act.get("total_energy_uj", ""),
                 "pct_error_vs_pt": act.get("pct_error_vs_pt", ""),

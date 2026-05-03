@@ -4,7 +4,7 @@ Maps each TAIDL/ISA op in the trace to abstraction classes in
 ``dse/config/primitive_hw_config.json``, using the same byte/op proxies as
 ``features._instruction_contrib``. Fused TAIDL instructions (e.g. ``softmax``)
 are charged as one block, consistent with ``fused_patterns`` in
-``docs/hardware_mapping_interface_package/final_mapping.json`` (softmax_fused).
+``hardware_interface/hardware_mapping_interface_package/final_mapping.json`` (softmax_fused).
 """
 
 import json
@@ -15,7 +15,7 @@ from .features import _extract_width, _instruction_contrib
 
 _DEFAULT_MAPPING = (
     Path(__file__).resolve().parents[1]
-    / "docs"
+    / "hardware_interface"
     / "hardware_mapping_interface_package"
     / "final_mapping.json"
 )

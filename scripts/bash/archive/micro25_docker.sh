@@ -56,7 +56,7 @@ else
 fi
 
 CONTAINER_NAME="act-tutorials-$(whoami)"
-HOST_MOUNT="$(pwd)/../.."
+HOST_MOUNT="$(pwd)/../../.."
 CONTAINER_MOUNT="/workspace"
 
 # Check if image exists locally

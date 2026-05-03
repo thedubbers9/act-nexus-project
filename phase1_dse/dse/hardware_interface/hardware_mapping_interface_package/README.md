@@ -118,7 +118,7 @@ cost aggregation: use cost_tag × hardware params
 ## Regenerating outputs
 
 ```bash
-cd final_mapping/
+# From this directory (…/hardware_mapping_interface_package/):
 python3 generate_final_mapping.py
 ```
 

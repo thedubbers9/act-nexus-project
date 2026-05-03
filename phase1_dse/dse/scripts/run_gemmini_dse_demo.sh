@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Hardware-mapping + cost-model static energy on .pii (no roofline / no pre-schedule hook).
 # Uses: phase1_dse/dse/src/energy_workload.py + primitive_hw_config.json +
-#       docs/hardware_mapping_interface_package/final_mapping.json (via energy_estimate).
+#       phase1_dse/dse/hardware_interface/hardware_mapping_interface_package/final_mapping.json (via energy_estimate).
 #
 # Run from ACT repo root:
 #   bash phase1_dse/dse/scripts/run_gemmini_dse_demo.sh

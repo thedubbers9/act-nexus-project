@@ -100,7 +100,7 @@
     }
   ],
   "mapping_interface": {
-    "path": "/scratch/krish/MLIR-hardware-analysis/submodule/act/phase1_dse/dse/docs/hardware_mapping_interface_package/final_mapping.json",
+    "path": "/scratch/krish/MLIR-hardware-analysis/submodule/act/phase1_dse/dse/hardware_interface/hardware_mapping_interface_package/final_mapping.json",
     "version": 3,
     "model": "realization_first",
     "fused_patterns": [

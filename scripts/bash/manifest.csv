@@ -1,21 +1,22 @@
 file,group,purpose
 act_clean_generated.sh,cleanup,Remove generated ACT artifacts
-run_attn_tile64_from_hlo_demo.sh,run,Run ATTN_TILE64 demo from HLO input
-run_attn_tile64_primitives.sh,run,Run ATTN_TILE64 primitive/reference flow
-run_attn_tile64_pt2hlo_demo.sh,run,Run ATTN_TILE64 PT-to-HLO demo flow
-run_multi_workload_dse.sh,run,Run multiple workload DSE experiments
-run_pt2hlo_attn_tile64_demo.sh,run,Run PT-to-HLO ATTN_TILE64 demo
-run_pt2hlo_qkv_dse_demo.sh,run,Run PT-to-HLO QKV DSE demo
-run_qkv_dse.sh,run,Run QKV DSE flow
-run_qkv_dse_from_hlo_demo.sh,run,Run QKV DSE starting from HLO
-run_qkv_dse_primitives.sh,run,Run QKV primitive/reference flow
-run_qkv_dse_pt2hlo_demo.sh,run,Run QKV PT-to-HLO demo flow
+run_isa_primitives.sh,run,ISA → primitives → taidl_instruction_costs.json
+run_gemmini_17_primitives.sh,run,Wrapper: GEMMINI_17 → run_isa_primitives.sh
+run_attn_tile64_primitives.sh,run,Wrapper: ATTN_TILE64 → run_isa_primitives.sh
+run_qkv_dse_primitives.sh,run,Wrapper: QKV_DSE → run_isa_primitives.sh
 docker_build.sh,docker,Build ACT container image
 docker_chown.sh,docker,Fix file ownership after container runs
 docker_cleanup.sh,docker,Clean Docker resources for ACT
 docker_entrypoint.sh,docker,Container entrypoint helper
 docker_run.sh,docker,Run ACT container
-micro25_clean.sh,micro25,Clean MICRO'25 artifact outputs
-micro25_copy.sh,micro25,Copy MICRO'25 artifact/material outputs
-micro25_docker.sh,micro25,Launch MICRO'25 Docker workflow
-micro25_solve.sh,micro25,Run MICRO'25 solve flow
+docker_verify_energy_path.sh,docker,Smoke-test dse.energy_workload in container
+micro25_clean.sh,archive/micro25,Clean MICRO'25 outputs (see archive/README.md)
+micro25_copy.sh,archive/micro25,Copy MICRO'25 boilerplate
+micro25_docker.sh,archive/micro25,MICRO'25 Docker workflow
+micro25_solve.sh,archive/micro25,Copy MICRO'25 boilerplate + solution
+run_attn_tile64_from_hlo_demo.sh,archive/demo,ATTN HLO→compile→plots
+run_attn_tile64_pt2hlo_demo.sh,archive/demo,ATTN PT2HLO full chain
+run_pt2hlo_attn_tile64_demo.sh,archive/demo,PT2HLO step for ATTN
+run_pt2hlo_qkv_dse_demo.sh,archive/demo,PT2HLO step for QKV DSE
+run_qkv_dse_from_hlo_demo.sh,archive/demo,QKV HLO→compile→plots
+run_qkv_dse_pt2hlo_demo.sh,archive/demo,QKV PT2HLO full chain

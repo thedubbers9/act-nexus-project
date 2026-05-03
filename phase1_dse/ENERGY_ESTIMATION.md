@@ -7,6 +7,8 @@ This fork’s workflow has two layers:
 
 Use the **MICRO’25 tutorial container** for (1) on cluster machines where the checked-in `backends/`* binaries match the image (glibc, OR-Tools). Use **host Python** for (2) when you only need energy on saved `.pii` files.
 
+For the **hardware-mapping interface** package, `generate_final_mapping.py`, and how **`dse.energy_workload`** fits together with **`primitive_hw_config.json`** (ACT as a black box), see **`HARDWARE_INTERFACE_ENERGY.md`** in this folder.
+
 ---
 
 ## A. One-time: Podman storage + pull tutorial image
@@ -65,7 +67,7 @@ bash scripts/bash/run_isa_primitives.sh --isa-name ATTN_TILE64
 bash scripts/bash/run_isa_primitives.sh --isa-name QKV_DSE
 ```
 
-For calibration-style HW JSON, point `HW_RESOURCE_CONFIG` at `MLIR-hardware-analysis/submodule/.cursor/primitive_hw_config_micro.json` (see `ACT_CALIBRATION_FORK_NOTES.md`).
+For calibration-style HW JSON, point `HW_RESOURCE_CONFIG` at `phase1_dse/dse/config/primitive_hw_config_micro.json` (see `ACT_CALIBRATION_FORK_NOTES.md`).
 
 ---
 
@@ -152,7 +154,7 @@ python3 -m dse.energy_workload \
 
 - `**--input**`: one `.pii` file or a directory of candidates.
 - `**--hw_config**`: `primitive_hw_config.json` (abstraction-class energies).
-- `**--mapping_json**`: optional `phase1_dse/dse/docs/hardware_mapping_interface_package/final_mapping.json` (defaulted inside code if present).
+- `**--mapping_json**`: optional `phase1_dse/dse/hardware_interface/hardware_mapping_interface_package/final_mapping.json` (defaulted inside code if present).
 - `**--plot**`: writes `demo_output/energy_run/plots/energy_by_class_<stem>.png`.
 - **JSON/CSV**: `energy_summary.json`, `candidate_energy.csv`, `energy_detail_*.json` under `--out`.
 

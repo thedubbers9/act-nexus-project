@@ -2,7 +2,7 @@
 
 set -e
 
-cd "$(dirname "$0")"/../..
+cd "$(dirname "$0")/../../.."
 
 ./docker/chown.sh > /dev/null 2>&1 || true
 
