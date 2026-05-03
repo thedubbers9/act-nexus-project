@@ -1,0 +1,115 @@
+{
+  "candidate": "0.pii",
+  "kernel_name": "0",
+  "total_energy_pj": 1584618.8231168,
+  "by_abstraction_class_pj": {
+    "contiguous_move": 28612.3841024,
+    "tensor_compute": 860569.6,
+    "special_math": 695436.8390144
+  },
+  "per_instruction": [
+    {
+      "op": "Var",
+      "lineno": 1,
+      "energy_pj": 0,
+      "by_class_pj": {}
+    },
+    {
+      "op": "load_rm",
+      "lineno": 2,
+      "energy_pj": 3576.5480128,
+      "by_class_pj": {
+        "contiguous_move": 3576.5480128
+      }
+    },
+    {
+      "op": "Var",
+      "lineno": 3,
+      "energy_pj": 0,
+      "by_class_pj": {}
+    },
+    {
+      "op": "load_cm",
+      "lineno": 4,
+      "energy_pj": 3576.5480128,
+      "by_class_pj": {
+        "contiguous_move": 3576.5480128
+      }
+    },
+    {
+      "op": "gemm",
+      "lineno": 5,
+      "energy_pj": 430284.8,
+      "by_class_pj": {
+        "tensor_compute": 430284.8
+      }
+    },
+    {
+      "op": "softmax",
+      "lineno": 6,
+      "energy_pj": 695436.8390144,
+      "by_class_pj": {
+        "special_math": 695436.8390144
+      }
+    },
+    {
+      "op": "mov",
+      "lineno": 7,
+      "energy_pj": 7153.0960256,
+      "by_class_pj": {
+        "contiguous_move": 7153.0960256
+      }
+    },
+    {
+      "op": "Var",
+      "lineno": 8,
+      "energy_pj": 0,
+      "by_class_pj": {}
+    },
+    {
+      "op": "load_rm",
+      "lineno": 9,
+      "energy_pj": 3576.5480128,
+      "by_class_pj": {
+        "contiguous_move": 3576.5480128
+      }
+    },
+    {
+      "op": "gemm",
+      "lineno": 10,
+      "energy_pj": 430284.8,
+      "by_class_pj": {
+        "tensor_compute": 430284.8
+      }
+    },
+    {
+      "op": "mov",
+      "lineno": 11,
+      "energy_pj": 7153.0960256,
+      "by_class_pj": {
+        "contiguous_move": 7153.0960256
+      }
+    },
+    {
+      "op": "store_rm",
+      "lineno": 12,
+      "energy_pj": 3576.5480128,
+      "by_class_pj": {
+        "contiguous_move": 3576.5480128
+      }
+    }
+  ],
+  "mapping_interface": {
+    "path": "/scratch/krish/MLIR-hardware-analysis/submodule/act/phase1_dse/dse/docs/hardware_mapping_interface_package/final_mapping.json",
+    "version": 3,
+    "model": "realization_first",
+    "fused_patterns": [
+      "softmax_fused",
+      "exp_reduce_fused",
+      "matmul_bias_relu",
+      "matmul_bias",
+      "matmul_relu",
+      "conv_ws_fused"
+    ]
+  }
+}

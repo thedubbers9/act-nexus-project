@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Cleans Phase-1 DSE outputs under phase1_dse/dse/ plus asm/log. Run from repo via bash scripts/bash/act_clean_generated.sh
 set -euo pipefail
 
 # Dry-run by default. Use --yes to actually delete.
@@ -19,16 +20,16 @@ for arg in "$@"; do
   esac
 done
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT_DIR"
 
 paths=(
   "asm"
   "log"
-  "dse/output"
-  "dse/__pycache__"
-  "dse/src/__pycache__"
-  "dse/tests/__pycache__"
+  "phase1_dse/dse/output"
+  "phase1_dse/dse/__pycache__"
+  "phase1_dse/dse/src/__pycache__"
+  "phase1_dse/dse/tests/__pycache__"
 )
 
 if [[ "$INCLUDE_OLD_SCRIPT" -eq 1 ]]; then

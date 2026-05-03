@@ -1,0 +1,597 @@
+[
+  {
+    "label": "0",
+    "path": "/scratch/krish/MLIR-hardware-analysis/submodule/act/log/gemmini_attention64/0.py",
+    "total_energy_pj": 1200100.8851200002,
+    "used_fallback": false,
+    "instruction_breakdown": {
+      "load_rm": {
+        "calls": 2,
+        "total_energy_pj": 14306.1920512,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "load_cm": {
+        "calls": 1,
+        "total_energy_pj": 7153.0960256,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "gemm": {
+        "calls": 2,
+        "total_energy_pj": 851937.28,
+        "formula": "103.90625 * (8192 * @c.n) / (128) + 0.015 * (2 * 64 * @c.n + 8192 + 2 * 64 * @c.n)"
+      },
+      "softmax": {
+        "calls": 1,
+        "total_energy_pj": 305245.02896639996,
+        "formula": "909.7751295999999 * (64 * @c.n) / (16) + 0.015 * (2 * 64 * @c.n + 2 * 64 * @c.n) + 0.18 * (64 * @c.n) - (@c.n) + 0.015 * (2 * 64 * @c.n + 2 * @c.n) + 277.0707648 * (64 * @c.n) / (16) + 0.015 * (4 * 64 * @c.n + 2 * 64 * @c.n)"
+      },
+      "mov": {
+        "calls": 2,
+        "total_energy_pj": 14306.1920512,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "store_rm": {
+        "calls": 1,
+        "total_energy_pj": 7153.0960256,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      }
+    }
+  },
+  {
+    "label": "1",
+    "path": "/scratch/krish/MLIR-hardware-analysis/submodule/act/log/gemmini_attention64/1.py",
+    "total_energy_pj": 1200100.8851200002,
+    "used_fallback": false,
+    "instruction_breakdown": {
+      "load_rm": {
+        "calls": 2,
+        "total_energy_pj": 14306.1920512,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "load_cm": {
+        "calls": 1,
+        "total_energy_pj": 7153.0960256,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "gemm": {
+        "calls": 2,
+        "total_energy_pj": 851937.28,
+        "formula": "103.90625 * (8192 * @c.n) / (128) + 0.015 * (2 * 64 * @c.n + 8192 + 2 * 64 * @c.n)"
+      },
+      "softmax": {
+        "calls": 1,
+        "total_energy_pj": 305245.02896639996,
+        "formula": "909.7751295999999 * (64 * @c.n) / (16) + 0.015 * (2 * 64 * @c.n + 2 * 64 * @c.n) + 0.18 * (64 * @c.n) - (@c.n) + 0.015 * (2 * 64 * @c.n + 2 * @c.n) + 277.0707648 * (64 * @c.n) / (16) + 0.015 * (4 * 64 * @c.n + 2 * 64 * @c.n)"
+      },
+      "mov": {
+        "calls": 2,
+        "total_energy_pj": 14306.1920512,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "store_rm": {
+        "calls": 1,
+        "total_energy_pj": 7153.0960256,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      }
+    }
+  },
+  {
+    "label": "2",
+    "path": "/scratch/krish/MLIR-hardware-analysis/submodule/act/log/gemmini_attention64/2.py",
+    "total_energy_pj": 1200100.8851200002,
+    "used_fallback": false,
+    "instruction_breakdown": {
+      "load_rm": {
+        "calls": 2,
+        "total_energy_pj": 14306.1920512,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "load_cm": {
+        "calls": 1,
+        "total_energy_pj": 7153.0960256,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "gemm": {
+        "calls": 2,
+        "total_energy_pj": 851937.28,
+        "formula": "103.90625 * (8192 * @c.n) / (128) + 0.015 * (2 * 64 * @c.n + 8192 + 2 * 64 * @c.n)"
+      },
+      "softmax": {
+        "calls": 1,
+        "total_energy_pj": 305245.02896639996,
+        "formula": "909.7751295999999 * (64 * @c.n) / (16) + 0.015 * (2 * 64 * @c.n + 2 * 64 * @c.n) + 0.18 * (64 * @c.n) - (@c.n) + 0.015 * (2 * 64 * @c.n + 2 * @c.n) + 277.0707648 * (64 * @c.n) / (16) + 0.015 * (4 * 64 * @c.n + 2 * 64 * @c.n)"
+      },
+      "mov": {
+        "calls": 2,
+        "total_energy_pj": 14306.1920512,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "store_rm": {
+        "calls": 1,
+        "total_energy_pj": 7153.0960256,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      }
+    }
+  },
+  {
+    "label": "3",
+    "path": "/scratch/krish/MLIR-hardware-analysis/submodule/act/log/gemmini_attention64/3.py",
+    "total_energy_pj": 1200100.8851200002,
+    "used_fallback": false,
+    "instruction_breakdown": {
+      "load_rm": {
+        "calls": 1,
+        "total_energy_pj": 7153.0960256,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "load_cm": {
+        "calls": 1,
+        "total_energy_pj": 7153.0960256,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "gemm": {
+        "calls": 2,
+        "total_energy_pj": 851937.28,
+        "formula": "103.90625 * (8192 * @c.n) / (128) + 0.015 * (2 * 64 * @c.n + 8192 + 2 * 64 * @c.n)"
+      },
+      "softmax": {
+        "calls": 1,
+        "total_energy_pj": 305245.02896639996,
+        "formula": "909.7751295999999 * (64 * @c.n) / (16) + 0.015 * (2 * 64 * @c.n + 2 * 64 * @c.n) + 0.18 * (64 * @c.n) - (@c.n) + 0.015 * (2 * 64 * @c.n + 2 * @c.n) + 277.0707648 * (64 * @c.n) / (16) + 0.015 * (4 * 64 * @c.n + 2 * 64 * @c.n)"
+      },
+      "mov": {
+        "calls": 3,
+        "total_energy_pj": 21459.2880768,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "load_bias": {
+        "calls": 1,
+        "total_energy_pj": 0.0,
+        "formula": "0"
+      },
+      "store_rm": {
+        "calls": 1,
+        "total_energy_pj": 7153.0960256,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      }
+    }
+  },
+  {
+    "label": "4",
+    "path": "/scratch/krish/MLIR-hardware-analysis/submodule/act/log/gemmini_attention64/4.py",
+    "total_energy_pj": 1200100.8851200002,
+    "used_fallback": false,
+    "instruction_breakdown": {
+      "load_bias": {
+        "calls": 1,
+        "total_energy_pj": 0.0,
+        "formula": "0"
+      },
+      "mov": {
+        "calls": 3,
+        "total_energy_pj": 21459.2880768,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "load_cm": {
+        "calls": 1,
+        "total_energy_pj": 7153.0960256,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "gemm": {
+        "calls": 2,
+        "total_energy_pj": 851937.28,
+        "formula": "103.90625 * (8192 * @c.n) / (128) + 0.015 * (2 * 64 * @c.n + 8192 + 2 * 64 * @c.n)"
+      },
+      "softmax": {
+        "calls": 1,
+        "total_energy_pj": 305245.02896639996,
+        "formula": "909.7751295999999 * (64 * @c.n) / (16) + 0.015 * (2 * 64 * @c.n + 2 * 64 * @c.n) + 0.18 * (64 * @c.n) - (@c.n) + 0.015 * (2 * 64 * @c.n + 2 * @c.n) + 277.0707648 * (64 * @c.n) / (16) + 0.015 * (4 * 64 * @c.n + 2 * 64 * @c.n)"
+      },
+      "load_rm": {
+        "calls": 1,
+        "total_energy_pj": 7153.0960256,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "store_rm": {
+        "calls": 1,
+        "total_energy_pj": 7153.0960256,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      }
+    }
+  },
+  {
+    "label": "5",
+    "path": "/scratch/krish/MLIR-hardware-analysis/submodule/act/log/gemmini_attention64/5.py",
+    "total_energy_pj": 1214407.0771712004,
+    "used_fallback": false,
+    "instruction_breakdown": {
+      "load_rm": {
+        "calls": 3,
+        "total_energy_pj": 21459.2880768,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "load_cm": {
+        "calls": 1,
+        "total_energy_pj": 7153.0960256,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "gemm": {
+        "calls": 2,
+        "total_energy_pj": 851937.28,
+        "formula": "103.90625 * (8192 * @c.n) / (128) + 0.015 * (2 * 64 * @c.n + 8192 + 2 * 64 * @c.n)"
+      },
+      "softmax": {
+        "calls": 1,
+        "total_energy_pj": 305245.02896639996,
+        "formula": "909.7751295999999 * (64 * @c.n) / (16) + 0.015 * (2 * 64 * @c.n + 2 * 64 * @c.n) + 0.18 * (64 * @c.n) - (@c.n) + 0.015 * (2 * 64 * @c.n + 2 * @c.n) + 277.0707648 * (64 * @c.n) / (16) + 0.015 * (4 * 64 * @c.n + 2 * 64 * @c.n)"
+      },
+      "mov": {
+        "calls": 2,
+        "total_energy_pj": 14306.1920512,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "store_rm": {
+        "calls": 2,
+        "total_energy_pj": 14306.1920512,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      }
+    }
+  },
+  {
+    "label": "6",
+    "path": "/scratch/krish/MLIR-hardware-analysis/submodule/act/log/gemmini_attention64/6.py",
+    "total_energy_pj": 1214407.0771712004,
+    "used_fallback": false,
+    "instruction_breakdown": {
+      "load_rm": {
+        "calls": 2,
+        "total_energy_pj": 14306.1920512,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "load_cm": {
+        "calls": 1,
+        "total_energy_pj": 7153.0960256,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "gemm": {
+        "calls": 2,
+        "total_energy_pj": 851937.28,
+        "formula": "103.90625 * (8192 * @c.n) / (128) + 0.015 * (2 * 64 * @c.n + 8192 + 2 * 64 * @c.n)"
+      },
+      "softmax": {
+        "calls": 1,
+        "total_energy_pj": 305245.02896639996,
+        "formula": "909.7751295999999 * (64 * @c.n) / (16) + 0.015 * (2 * 64 * @c.n + 2 * 64 * @c.n) + 0.18 * (64 * @c.n) - (@c.n) + 0.015 * (2 * 64 * @c.n + 2 * @c.n) + 277.0707648 * (64 * @c.n) / (16) + 0.015 * (4 * 64 * @c.n + 2 * 64 * @c.n)"
+      },
+      "mov": {
+        "calls": 3,
+        "total_energy_pj": 21459.2880768,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "mov_rev": {
+        "calls": 1,
+        "total_energy_pj": 7153.0960256,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "store_rm": {
+        "calls": 1,
+        "total_energy_pj": 7153.0960256,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      }
+    }
+  },
+  {
+    "label": "7",
+    "path": "/scratch/krish/MLIR-hardware-analysis/submodule/act/log/gemmini_attention64/7.py",
+    "total_energy_pj": 1200100.8851200002,
+    "used_fallback": false,
+    "instruction_breakdown": {
+      "load_rm": {
+        "calls": 2,
+        "total_energy_pj": 14306.1920512,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "load_cm": {
+        "calls": 1,
+        "total_energy_pj": 7153.0960256,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "gemm": {
+        "calls": 2,
+        "total_energy_pj": 851937.28,
+        "formula": "103.90625 * (8192 * @c.n) / (128) + 0.015 * (2 * 64 * @c.n + 8192 + 2 * 64 * @c.n)"
+      },
+      "softmax": {
+        "calls": 1,
+        "total_energy_pj": 305245.02896639996,
+        "formula": "909.7751295999999 * (64 * @c.n) / (16) + 0.015 * (2 * 64 * @c.n + 2 * 64 * @c.n) + 0.18 * (64 * @c.n) - (@c.n) + 0.015 * (2 * 64 * @c.n + 2 * @c.n) + 277.0707648 * (64 * @c.n) / (16) + 0.015 * (4 * 64 * @c.n + 2 * 64 * @c.n)"
+      },
+      "mov": {
+        "calls": 2,
+        "total_energy_pj": 14306.1920512,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "store_rm": {
+        "calls": 1,
+        "total_energy_pj": 7153.0960256,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      }
+    }
+  },
+  {
+    "label": "8",
+    "path": "/scratch/krish/MLIR-hardware-analysis/submodule/act/log/gemmini_attention64/8.py",
+    "total_energy_pj": 1214407.0771712,
+    "used_fallback": false,
+    "instruction_breakdown": {
+      "load_rm": {
+        "calls": 3,
+        "total_energy_pj": 21459.2880768,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "load_cm": {
+        "calls": 1,
+        "total_energy_pj": 7153.0960256,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "gemm": {
+        "calls": 2,
+        "total_energy_pj": 851937.28,
+        "formula": "103.90625 * (8192 * @c.n) / (128) + 0.015 * (2 * 64 * @c.n + 8192 + 2 * 64 * @c.n)"
+      },
+      "softmax": {
+        "calls": 1,
+        "total_energy_pj": 305245.02896639996,
+        "formula": "909.7751295999999 * (64 * @c.n) / (16) + 0.015 * (2 * 64 * @c.n + 2 * 64 * @c.n) + 0.18 * (64 * @c.n) - (@c.n) + 0.015 * (2 * 64 * @c.n + 2 * @c.n) + 277.0707648 * (64 * @c.n) / (16) + 0.015 * (4 * 64 * @c.n + 2 * 64 * @c.n)"
+      },
+      "mov": {
+        "calls": 2,
+        "total_energy_pj": 14306.1920512,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "store_rm": {
+        "calls": 2,
+        "total_energy_pj": 14306.1920512,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      }
+    }
+  },
+  {
+    "label": "9",
+    "path": "/scratch/krish/MLIR-hardware-analysis/submodule/act/log/gemmini_attention64/9.py",
+    "total_energy_pj": 1214407.0771712,
+    "used_fallback": false,
+    "instruction_breakdown": {
+      "load_rm": {
+        "calls": 2,
+        "total_energy_pj": 14306.1920512,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "load_cm": {
+        "calls": 1,
+        "total_energy_pj": 7153.0960256,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "gemm": {
+        "calls": 2,
+        "total_energy_pj": 851937.28,
+        "formula": "103.90625 * (8192 * @c.n) / (128) + 0.015 * (2 * 64 * @c.n + 8192 + 2 * 64 * @c.n)"
+      },
+      "softmax": {
+        "calls": 1,
+        "total_energy_pj": 305245.02896639996,
+        "formula": "909.7751295999999 * (64 * @c.n) / (16) + 0.015 * (2 * 64 * @c.n + 2 * 64 * @c.n) + 0.18 * (64 * @c.n) - (@c.n) + 0.015 * (2 * 64 * @c.n + 2 * @c.n) + 277.0707648 * (64 * @c.n) / (16) + 0.015 * (4 * 64 * @c.n + 2 * 64 * @c.n)"
+      },
+      "mov": {
+        "calls": 3,
+        "total_energy_pj": 21459.2880768,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "mov_rev": {
+        "calls": 1,
+        "total_energy_pj": 7153.0960256,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "store_rm": {
+        "calls": 1,
+        "total_energy_pj": 7153.0960256,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      }
+    }
+  },
+  {
+    "label": "10",
+    "path": "/scratch/krish/MLIR-hardware-analysis/submodule/act/log/gemmini_attention64/10.py",
+    "total_energy_pj": 1200100.8851200002,
+    "used_fallback": false,
+    "instruction_breakdown": {
+      "load_rm": {
+        "calls": 2,
+        "total_energy_pj": 14306.1920512,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "load_cm": {
+        "calls": 1,
+        "total_energy_pj": 7153.0960256,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "gemm": {
+        "calls": 2,
+        "total_energy_pj": 851937.28,
+        "formula": "103.90625 * (8192 * @c.n) / (128) + 0.015 * (2 * 64 * @c.n + 8192 + 2 * 64 * @c.n)"
+      },
+      "softmax": {
+        "calls": 1,
+        "total_energy_pj": 305245.02896639996,
+        "formula": "909.7751295999999 * (64 * @c.n) / (16) + 0.015 * (2 * 64 * @c.n + 2 * 64 * @c.n) + 0.18 * (64 * @c.n) - (@c.n) + 0.015 * (2 * 64 * @c.n + 2 * @c.n) + 277.0707648 * (64 * @c.n) / (16) + 0.015 * (4 * 64 * @c.n + 2 * 64 * @c.n)"
+      },
+      "mov": {
+        "calls": 2,
+        "total_energy_pj": 14306.1920512,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "store_rm": {
+        "calls": 1,
+        "total_energy_pj": 7153.0960256,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      }
+    }
+  },
+  {
+    "label": "11",
+    "path": "/scratch/krish/MLIR-hardware-analysis/submodule/act/log/gemmini_attention64/11.py",
+    "total_energy_pj": 1214407.0771712,
+    "used_fallback": false,
+    "instruction_breakdown": {
+      "load_rm": {
+        "calls": 2,
+        "total_energy_pj": 14306.1920512,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "load_cm": {
+        "calls": 1,
+        "total_energy_pj": 7153.0960256,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "gemm": {
+        "calls": 2,
+        "total_energy_pj": 851937.28,
+        "formula": "103.90625 * (8192 * @c.n) / (128) + 0.015 * (2 * 64 * @c.n + 8192 + 2 * 64 * @c.n)"
+      },
+      "mov": {
+        "calls": 3,
+        "total_energy_pj": 21459.2880768,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "mov_rev": {
+        "calls": 1,
+        "total_energy_pj": 7153.0960256,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "softmax": {
+        "calls": 1,
+        "total_energy_pj": 305245.02896639996,
+        "formula": "909.7751295999999 * (64 * @c.n) / (16) + 0.015 * (2 * 64 * @c.n + 2 * 64 * @c.n) + 0.18 * (64 * @c.n) - (@c.n) + 0.015 * (2 * 64 * @c.n + 2 * @c.n) + 277.0707648 * (64 * @c.n) / (16) + 0.015 * (4 * 64 * @c.n + 2 * 64 * @c.n)"
+      },
+      "store_rm": {
+        "calls": 1,
+        "total_energy_pj": 7153.0960256,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      }
+    }
+  },
+  {
+    "label": "12",
+    "path": "/scratch/krish/MLIR-hardware-analysis/submodule/act/log/gemmini_attention64/12.py",
+    "total_energy_pj": 1214407.0771712,
+    "used_fallback": false,
+    "instruction_breakdown": {
+      "load_rm": {
+        "calls": 3,
+        "total_energy_pj": 21459.2880768,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "load_cm": {
+        "calls": 1,
+        "total_energy_pj": 7153.0960256,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "store_rm": {
+        "calls": 2,
+        "total_energy_pj": 14306.1920512,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "gemm": {
+        "calls": 2,
+        "total_energy_pj": 851937.28,
+        "formula": "103.90625 * (8192 * @c.n) / (128) + 0.015 * (2 * 64 * @c.n + 8192 + 2 * 64 * @c.n)"
+      },
+      "softmax": {
+        "calls": 1,
+        "total_energy_pj": 305245.02896639996,
+        "formula": "909.7751295999999 * (64 * @c.n) / (16) + 0.015 * (2 * 64 * @c.n + 2 * 64 * @c.n) + 0.18 * (64 * @c.n) - (@c.n) + 0.015 * (2 * 64 * @c.n + 2 * @c.n) + 277.0707648 * (64 * @c.n) / (16) + 0.015 * (4 * 64 * @c.n + 2 * 64 * @c.n)"
+      },
+      "mov": {
+        "calls": 2,
+        "total_energy_pj": 14306.1920512,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      }
+    }
+  },
+  {
+    "label": "13",
+    "path": "/scratch/krish/MLIR-hardware-analysis/submodule/act/log/gemmini_attention64/13.py",
+    "total_energy_pj": 1214407.0771712,
+    "used_fallback": false,
+    "instruction_breakdown": {
+      "load_rm": {
+        "calls": 4,
+        "total_energy_pj": 28612.3841024,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "store_cm": {
+        "calls": 1,
+        "total_energy_pj": 7153.0960256,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "gemm": {
+        "calls": 2,
+        "total_energy_pj": 851937.28,
+        "formula": "103.90625 * (8192 * @c.n) / (128) + 0.015 * (2 * 64 * @c.n + 8192 + 2 * 64 * @c.n)"
+      },
+      "softmax": {
+        "calls": 1,
+        "total_energy_pj": 305245.02896639996,
+        "formula": "909.7751295999999 * (64 * @c.n) / (16) + 0.015 * (2 * 64 * @c.n + 2 * 64 * @c.n) + 0.18 * (64 * @c.n) - (@c.n) + 0.015 * (2 * 64 * @c.n + 2 * @c.n) + 277.0707648 * (64 * @c.n) / (16) + 0.015 * (4 * 64 * @c.n + 2 * 64 * @c.n)"
+      },
+      "mov": {
+        "calls": 2,
+        "total_energy_pj": 14306.1920512,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "store_rm": {
+        "calls": 1,
+        "total_energy_pj": 7153.0960256,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      }
+    }
+  },
+  {
+    "label": "14",
+    "path": "/scratch/krish/MLIR-hardware-analysis/submodule/act/log/gemmini_attention64/14.py",
+    "total_energy_pj": 1200100.8851200002,
+    "used_fallback": false,
+    "instruction_breakdown": {
+      "load_rm": {
+        "calls": 2,
+        "total_energy_pj": 14306.1920512,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "load_cm": {
+        "calls": 1,
+        "total_energy_pj": 7153.0960256,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "gemm": {
+        "calls": 2,
+        "total_energy_pj": 851937.28,
+        "formula": "103.90625 * (8192 * @c.n) / (128) + 0.015 * (2 * 64 * @c.n + 8192 + 2 * 64 * @c.n)"
+      },
+      "softmax": {
+        "calls": 1,
+        "total_energy_pj": 305245.02896639996,
+        "formula": "909.7751295999999 * (64 * @c.n) / (16) + 0.015 * (2 * 64 * @c.n + 2 * 64 * @c.n) + 0.18 * (64 * @c.n) - (@c.n) + 0.015 * (2 * 64 * @c.n + 2 * @c.n) + 277.0707648 * (64 * @c.n) / (16) + 0.015 * (4 * 64 * @c.n + 2 * 64 * @c.n)"
+      },
+      "mov": {
+        "calls": 2,
+        "total_energy_pj": 14306.1920512,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "store_rm": {
+        "calls": 1,
+        "total_energy_pj": 7153.0960256,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      }
+    }
+  }
+]

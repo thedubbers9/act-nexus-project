@@ -1,0 +1,25 @@
+HloModule gemmini_anchor_attention_tile64, entry_computation_layout={(bf16[64,64]{1,0}, bf16[64,64]{1,0}, bf16[64,64]{1,0})->bf16[64,64]{1,0}}
+
+%reduce_add (x: bf16[], y: bf16[]) -> bf16[] {
+  %x = bf16[] parameter(0)
+  %y = bf16[] parameter(1)
+  ROOT %sum = bf16[] add(%x, %y)
+}
+
+ENTRY main {
+  // Primary ACT workload: 64x64 bf16 attention tile for Gemmini (softmax(Q @ K^T) @ V).
+  %q = bf16[64,64] parameter(0)
+  %k = bf16[64,64] parameter(1)
+  %v = bf16[64,64] parameter(2)
+
+  %k_t = bf16[64,64] transpose(%k), dimensions={1,0}
+  %scores = bf16[64,64] dot(%q, %k_t), lhs_contracting_dims={1}, rhs_contracting_dims={0}
+
+  %scores_exp = bf16[64,64] exponential(%scores)
+  %zero = bf16[] constant(0)
+  %sum = bf16[64] reduce(%scores_exp, %zero), dimensions={1}, to_apply=%reduce_add
+  %sum_b = bf16[64,64] broadcast(%sum), dimensions={0}
+  %probs = bf16[64,64] divide(%scores_exp, %sum_b)
+
+  ROOT %out = bf16[64,64] dot(%probs, %v), lhs_contracting_dims={1}, rhs_contracting_dims={0}
+}

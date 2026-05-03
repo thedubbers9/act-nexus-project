@@ -1,0 +1,34 @@
+{
+  "status": "ok",
+  "num_candidates": 1,
+  "hw_config": "/scratch/krish/MLIR-hardware-analysis/submodule/act/phase1_dse/dse/config/primitive_hw_config.json",
+  "mapping_interface": {
+    "path": "/scratch/krish/MLIR-hardware-analysis/submodule/act/phase1_dse/dse/docs/hardware_mapping_interface_package/final_mapping.json",
+    "version": 3,
+    "model": "realization_first",
+    "fused_patterns": [
+      "softmax_fused",
+      "exp_reduce_fused",
+      "matmul_bias_relu",
+      "matmul_bias",
+      "matmul_relu",
+      "conv_ws_fused"
+    ]
+  },
+  "candidates": [
+    {
+      "candidate": "0.pii",
+      "kernel_name": "0",
+      "total_energy_pj": 1584618.8231168,
+      "by_abstraction_class_pj": {
+        "contiguous_move": 28612.3841024,
+        "tensor_compute": 860569.6,
+        "special_math": 695436.8390144
+      }
+    }
+  ],
+  "detail_json": [
+    "/scratch/krish/MLIR-hardware-analysis/submodule/act/demo_output/attention_tile64_session_20260503_132956/energy_pii_0/energy_detail_0.json"
+  ],
+  "csv": "/scratch/krish/MLIR-hardware-analysis/submodule/act/demo_output/attention_tile64_session_20260503_132956/energy_pii_0/candidate_energy.csv"
+}

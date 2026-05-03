@@ -1,0 +1,41 @@
+HloModule llm_layer_kernel_tile64_anchor, entry_computation_layout={(bf16[64,64]{1,0}, bf16[64,64]{1,0}, bf16[64,64]{1,0}, bf16[64,64]{1,0}, bf16[64,64]{1,0}, bf16[64,64]{1,0}, bf16[64,64]{1,0})->bf16[64,64]{1,0}}
+
+%reduce_add (x: bf16[], y: bf16[]) -> bf16[] {
+  %x = bf16[] parameter(0)
+  %y = bf16[] parameter(1)
+  ROOT %sum = bf16[] add(%x, %y)
+}
+
+ENTRY main {
+  // Anchor LLM-style layer tile (64x64 bf16): Q/K/V projections, one softmax attention,
+  // output proj + residual, two-GEMM FFN + residual. Repeat this graph with new tensors
+  // to mimic stacked layers / batched sequence steps in PyTorch.
+
+  %x = bf16[64,64] parameter(0)
+  %wq = bf16[64,64] parameter(1)
+  %wk = bf16[64,64] parameter(2)
+  %wv = bf16[64,64] parameter(3)
+  %wo = bf16[64,64] parameter(4)
+  %w1 = bf16[64,64] parameter(5)
+  %w2 = bf16[64,64] parameter(6)
+
+  %q = bf16[64,64] dot(%x, %wq), lhs_contracting_dims={1}, rhs_contracting_dims={0}
+  %k = bf16[64,64] dot(%x, %wk), lhs_contracting_dims={1}, rhs_contracting_dims={0}
+  %v = bf16[64,64] dot(%x, %wv), lhs_contracting_dims={1}, rhs_contracting_dims={0}
+
+  %k_t = bf16[64,64] transpose(%k), dimensions={1,0}
+  %scores = bf16[64,64] dot(%q, %k_t), lhs_contracting_dims={1}, rhs_contracting_dims={0}
+  %scores_exp = bf16[64,64] exponential(%scores)
+  %zero = bf16[] constant(0)
+  %sum = bf16[64] reduce(%scores_exp, %zero), dimensions={1}, to_apply=%reduce_add
+  %sum_b = bf16[64,64] broadcast(%sum), dimensions={0}
+  %probs = bf16[64,64] divide(%scores_exp, %sum_b)
+  %ctx = bf16[64,64] dot(%probs, %v), lhs_contracting_dims={1}, rhs_contracting_dims={0}
+
+  %proj_attn = bf16[64,64] dot(%ctx, %wo), lhs_contracting_dims={1}, rhs_contracting_dims={0}
+  %after_attn = bf16[64,64] add(%proj_attn, %x)
+
+  %hid = bf16[64,64] dot(%after_attn, %w1), lhs_contracting_dims={1}, rhs_contracting_dims={0}
+  %ff = bf16[64,64] dot(%hid, %w2), lhs_contracting_dims={1}, rhs_contracting_dims={0}
+  ROOT %out = bf16[64,64] add(%ff, %after_attn)
+}

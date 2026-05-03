@@ -1,4 +1,4 @@
-HloModule attention_tile64_workable, entry_computation_layout={(bf16[64,64]{1,0}, bf16[64,64]{1,0}, bf16[64,64]{1,0})->bf16[64,64]{1,0}}
+HloModule attention_64x64, entry_computation_layout={(bf16[64,64]{1,0}, bf16[64,64]{1,0}, bf16[64,64]{1,0})->bf16[64,64]{1,0}}
 
 %reduce_add (x: bf16[], y: bf16[]) -> bf16[] {
   %x = bf16[] parameter(0)
@@ -7,8 +7,6 @@ HloModule attention_tile64_workable, entry_computation_layout={(bf16[64,64]{1,0}
 }
 
 ENTRY main {
-  // Transformer attention core on one 64x64 tile.
-  // O = softmax(Q @ K^T) @ V
   %q = bf16[64,64] parameter(0)
   %k = bf16[64,64] parameter(1)
   %v = bf16[64,64] parameter(2)
@@ -24,3 +22,4 @@ ENTRY main {
 
   ROOT %out = bf16[64,64] dot(%probs, %v), lhs_contracting_dims={1}, rhs_contracting_dims={0}
 }
+

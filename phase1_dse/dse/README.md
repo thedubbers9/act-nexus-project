@@ -1,3 +1,15 @@
+# DSE package (fork): static energy path
+
+**Current fork:** the live tree implements **hardware mapping metadata + cost-model static energy** on `.pii` via `python3 -m dse.energy_workload` (see `src/energy_workload.py`, `energy_estimate.py`, `parse_pii.py`, `features.py`).
+
+The **roofline / `dse.forward_bound`** pre-schedule hook, YAML peak configs, and related tests/scripts are **archived** under `phase1_dse/_archived_pii_roofline/`. Generated backends treat `--pre-schedule-dse` as a **deprecated no-op**.
+
+The sections below ("What is this DSE pass?" onward) describe the **archived** analytical bound pass for historical reference; they are not maintained as the primary workflow in this fork.
+
+---
+
+> **Location (fork):** this package lives at ``act/phase1_dse/dse/``. Set ``PYTHONPATH`` to include ``act/phase1_dse`` (or run demos from ``phase1_dse/dse/scripts/`` as documented in ``../README.md``). Not used for Gemmini↔PrimeTime calibration.
+
 # DSE  (ACT Phase-1, Pre-Schedule)
 
 This guide explains the DSE code in `dse/`.

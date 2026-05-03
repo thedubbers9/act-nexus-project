@@ -1,0 +1,7 @@
+HloModule matmul_64x64, entry_computation_layout={(bf16[64,64]{1,0}, bf16[64,64]{1,0})->bf16[64,64]{1,0}}
+
+ENTRY main {
+  %lhs = bf16[64,64] parameter(0)
+  %rhs = bf16[64,64] parameter(1)
+  ROOT %out = bf16[64,64] dot(%lhs, %rhs), lhs_contracting_dims={1}, rhs_contracting_dims={0}
+}

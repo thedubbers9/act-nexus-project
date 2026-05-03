@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 if [[ -z "${PYTHON_BIN:-}" ]]; then
   if command -v python3.11 >/dev/null 2>&1; then
     PYTHON_BIN="$(command -v python3.11)"
@@ -16,7 +16,7 @@ PT2HLO_OUT="${PT2HLO_OUT:-$ROOT_DIR/pt2hlo/out_attention_core64}"
 COMPILED_DIR="${COMPILED_DIR:-$ROOT_DIR/asm/attn_tile64_demo}"
 LOG_ROOT="${LOG_ROOT:-$ROOT_DIR/log/attn_tile64_demo}"
 PLOT_OUT="${PLOT_OUT:-$ROOT_DIR/demo_output/attn_tile64_demo}"
-HW_RESOURCE_CONFIG="${HW_RESOURCE_CONFIG:-$ROOT_DIR/dse/config/primitive_hw_config.json}"
+HW_RESOURCE_CONFIG="${HW_RESOURCE_CONFIG:-$ROOT_DIR/phase1_dse/dse/config/primitive_hw_config.json}"
 ISA_COST_REFRESH="${ISA_COST_REFRESH:-1}"
 ORTOOLS_LIB_DIR="${ORTOOLS_LIB_DIR:-/opt/ortools/lib}"
 
@@ -27,7 +27,7 @@ if [[ -d "$ORTOOLS_LIB_DIR" ]]; then
 fi
 
 if [[ "$ISA_COST_REFRESH" == "1" ]]; then
-  HW_RESOURCE_CONFIG="$HW_RESOURCE_CONFIG" bash "$ROOT_DIR/run_attn_tile64_primitives.sh"
+  HW_RESOURCE_CONFIG="$HW_RESOURCE_CONFIG" bash "$ROOT_DIR/scripts/bash/run_attn_tile64_primitives.sh"
 fi
 
 mapfile -t HLOS < <(find "$PT2HLO_OUT" -maxdepth 1 -name 'workload_*.hlo' | sort)

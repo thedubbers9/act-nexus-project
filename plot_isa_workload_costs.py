@@ -307,7 +307,7 @@ def _write_outputs(rows, instruction_names, out_dir: Path, prefix: str, total_ti
         hint = (
             "No per-instruction breakdown for the best candidate (empty instruction_breakdown).\n"
             "The Python cost model likely used fallback totals (e.g. missing taidl_instruction_costs.json).\n"
-            "For GEMMINI_17, run: bash scripts/bash/run_gemmini_17_primitives.sh\n"
+            "For GEMMINI_17, run: bash scripts/bash/run_isa_primitives.sh --isa-name GEMMINI_17\n"
         )
         miss_path = out_dir / f"{prefix}_best_candidate_op_energy_README.txt"
         miss_path.write_text(

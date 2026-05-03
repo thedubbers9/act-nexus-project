@@ -1,0 +1,2 @@
+candidate,kernel_name,total_energy_pj,by_abstraction_class_pj
+0.pii,0,1584618.8231168,"{""contiguous_move"": 28612.3841024, ""tensor_compute"": 860569.6, ""special_math"": 695436.8390144}"

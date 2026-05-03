@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
+# Fork note (MLIR-hardware-analysis): default REFERENCE_HLO is workloads/gemmini_anchor_attention_tile64.hlo
+# (Gemmini anchor attention). Upstream used attention_tile64_workable.hlo — removed; see ACT_CALIBRATION_FORK_NOTES.md.
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 if [[ -z "${PYTHON_BIN:-}" ]]; then
   if [[ -x "/opt/miniconda/envs/act/bin/python3" ]]; then
     PYTHON_BIN="/opt/miniconda/envs/act/bin/python3"
@@ -14,7 +16,7 @@ fi
 
 PT2HLO_OUT="${PT2HLO_OUT:-$ROOT_DIR/pt2hlo/out_attention_core64}"
 WORKLOAD_SPECS="${WORKLOAD_SPECS:-64,64:bfloat16;64,64:bfloat16;64,64:bfloat16}"
-REFERENCE_HLO="${REFERENCE_HLO:-$ROOT_DIR/workloads/attention_tile64_workable.hlo}"
+REFERENCE_HLO="${REFERENCE_HLO:-$ROOT_DIR/workloads/gemmini_anchor_attention_tile64.hlo}"
 MODEL_FILE="${MODEL_FILE:-$ROOT_DIR/pt2hlo/examples/attention_core64.py}"
 MODEL_ENTRY="${MODEL_ENTRY:-build_model}"
 

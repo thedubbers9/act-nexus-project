@@ -1,0 +1,40 @@
+[
+  {
+    "label": "demo_000",
+    "path": "/scratch/krish/MLIR-hardware-analysis/submodule/act/asm/attn_tile64_demo/demo_000.py",
+    "total_energy_pj": 1142944.3885312001,
+    "used_fallback": false,
+    "instruction_breakdown": {
+      "load_rm": {
+        "calls": 2,
+        "total_energy_pj": 14306.1920512,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "load_cm": {
+        "calls": 1,
+        "total_energy_pj": 7153.0960256,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "gemm": {
+        "calls": 2,
+        "total_energy_pj": 864737.28,
+        "formula": "421.875 * (8192 * @c.n) / (512) + 0.015 * (2 * 64 * @c.n + 8192 + 2 * 64 * @c.n)"
+      },
+      "softmax": {
+        "calls": 1,
+        "total_energy_pj": 235288.53237759997,
+        "formula": "3639.1005183999996 * (64 * @c.n) / (64) + 0.015 * (2 * 64 * @c.n + 2 * 64 * @c.n) + 0.18 * (64 * @c.n) - (@c.n) + 0.015 * (2 * 64 * @c.n + 2 * @c.n) + 15.2128 * (64 * @c.n) / (64) + 0.015 * (4 * 64 * @c.n + 2 * 64 * @c.n)"
+      },
+      "mov": {
+        "calls": 2,
+        "total_energy_pj": 14306.1920512,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      },
+      "store_rm": {
+        "calls": 1,
+        "total_energy_pj": 7153.0960256,
+        "formula": "0.43659033359375 * (128 * @c.n + 128 * @c.n)"
+      }
+    }
+  }
+]

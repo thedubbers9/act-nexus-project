@@ -6,7 +6,7 @@ one would require changing generators/backend. Attention-style workloads do not 
 For per-instruction ISA energy plots/tables (plot_isa_workload_costs.py), generate
 ``targets/GEMMINI_17/backend/taidl_instruction_costs.json`` after this script:
 
-    bash scripts/bash/run_gemmini_17_primitives.sh
+    bash scripts/bash/run_isa_primitives.sh --isa-name GEMMINI_17
 """
 
 from taidl import Accelerator

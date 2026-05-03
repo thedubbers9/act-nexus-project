@@ -1,0 +1,130 @@
+{
+  "hardware_profile": {
+    "name": "gemmini_micro_v1",
+    "description": "Right-sized micro tensor accelerator for 64x64 bf16 matmul. 8x8 systolic mesh (64 MACs), 16-lane vector units, 128 B/cycle DMA. Derived from toy_npu_mvp_v1 by 4x linear scaling.",
+    "technology_node_nm": 130,
+    "clock_ghz": 0.64,
+    "notes": "All energy_per_op/byte rates are identical to toy_npu_mvp_v1 (same technology). Area, power, throughput scaled 4x down. SPAD=[128,64] bf16 = 16KB. ACC=[64,64] bf16 = 8KB. Total logic area ~1.42 mm2, memory area ~0.24 mm2."
+  },
+  "bytes_per_dtype": {
+    "u8": 1,
+    "bf16": 2,
+    "f16": 2,
+    "f32": 4,
+    "s8": 1,
+    "s32": 4,
+    "u32": 4
+  },
+  "abstraction_classes": {
+    "input_literal": {
+      "resource_class": "host_or_hbm_interface",
+      "implementation": "hbm_controller_or_constant_rom",
+      "unit_count": 0,
+      "area_per_unit_mm2": 0.0,
+      "energy_per_op_pj": 0.0,
+      "energy_per_byte_pj": 0.0
+    },
+    "logical_view": {
+      "resource_class": "non_materialized_layout",
+      "implementation": "compiler_managed_view_no_dedicated_ip",
+      "unit_count": 0,
+      "area_per_unit_mm2": 0.0,
+      "energy_per_op_pj": 0.0,
+      "energy_per_byte_pj": 0.0,
+      "materialize_outputs": false
+    },
+    "contiguous_move": {
+      "resource_class": "scratchpad_dma",
+      "implementation": "axi_dma_datamover_micro",
+      "unit_count": 2,
+      "area_per_unit_mm2": 0.043439787,
+      "energy_per_op_pj": 0.0,
+      "energy_per_byte_pj": 0.43659033359375,
+      "bandwidth_bytes_per_cycle": 128,
+      "calibration_target": "axi_dma scaled 4x down (128 B/cycle from 512)"
+    },
+    "tensor_compute": {
+      "resource_class": "matrix_engine",
+      "implementation": "systolic_array_8x8_64mac",
+      "unit_count": 1,
+      "area_per_unit_mm2": 0.5,
+      "dynamic_power_mw": 66.5,
+      "clock_mhz": 640.0,
+      "effective_ops_per_cycle": 128,
+      "energy_per_op_pj": 0.149125,
+      "energy_per_byte_pj": 0.015,
+      "throughput_ops_per_cycle": 128,
+      "calibration_target": "Path C scoped PT on full-chip locked Gemmini (200us, SAIF_CAPTURE_CYCLES=20000): ex_controller scoped total power ~=66.5mW for both matmul and attn_proxy. Kept energy_per_op_pj unchanged pending event-count normalization."
+    },
+    "vector_compute_add": {
+      "resource_class": "vector_engine_add_logic",
+      "implementation": "tile64_vector_add_16lane_micro",
+      "unit_count": 1,
+      "area_per_unit_mm2": 0.0050048,
+      "dynamic_power_mw": 0.38032,
+      "clock_mhz": 100.0,
+      "effective_ops_per_cycle": 16,
+      "energy_per_op_pj": 0.2377,
+      "energy_per_byte_pj": 0.015,
+      "throughput_ops_per_cycle": 16,
+      "calibration_target": "ADD_16b unit cell x16 lanes (4x down from 64)"
+    },
+    "vector_compute_mul": {
+      "resource_class": "vector_engine_mul",
+      "implementation": "tile64_vector_mul_16lane_micro",
+      "unit_count": 1,
+      "area_per_unit_mm2": 0.041139456,
+      "dynamic_power_mw": 4.5216,
+      "clock_mhz": 100.0,
+      "effective_ops_per_cycle": 16,
+      "energy_per_op_pj": 2.826,
+      "energy_per_byte_pj": 0.015,
+      "throughput_ops_per_cycle": 16,
+      "calibration_target": "MUL_16b unit cell x16 lanes (4x down from 64)"
+    },
+    "vector_compute_div": {
+      "resource_class": "vector_engine_div",
+      "implementation": "tile64_vector_div_16lane_micro",
+      "unit_count": 1,
+      "area_per_unit_mm2": 0.275243984,
+      "dynamic_power_mw": 27.70707648,
+      "clock_mhz": 100.0,
+      "effective_ops_per_cycle": 16,
+      "energy_per_op_pj": 17.3169228,
+      "energy_per_byte_pj": 0.015,
+      "throughput_ops_per_cycle": 16,
+      "calibration_target": "FloorDiv_16_flopped x16 lanes (4x down from 64)"
+    },
+    "special_math": {
+      "resource_class": "vector_special_function_engine",
+      "implementation": "tile64_vector_special_math_16lane_micro",
+      "unit_count": 1,
+      "area_per_unit_mm2": 0.43599816,
+      "dynamic_power_mw": 90.97751296,
+      "clock_mhz": 100.0,
+      "effective_ops_per_cycle": 16,
+      "energy_per_op_pj": 56.8609456,
+      "energy_per_byte_pj": 0.015,
+      "throughput_ops_per_cycle": 16,
+      "calibration_target": "cordictanh x16 lanes (4x down from 64)"
+    },
+    "reduction": {
+      "resource_class": "reduction_engine",
+      "implementation": "adder_tree_or_vector_reduce_tree_micro",
+      "unit_count": 1,
+      "area_per_unit_mm2": 0.075,
+      "energy_per_op_pj": 0.18,
+      "energy_per_byte_pj": 0.015,
+      "throughput_ops_per_cycle": 32,
+      "calibration_target": "adder_tree RTL (4x down from 128 to 32 ops/cycle)"
+    },
+    "uncategorized": {
+      "resource_class": "unmapped_engine",
+      "implementation": "requires_manual_mapping",
+      "unit_count": 0,
+      "area_per_unit_mm2": 0.0,
+      "energy_per_op_pj": 0.0,
+      "energy_per_byte_pj": 0.0
+    }
+  }
+}

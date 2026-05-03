@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 if [[ -z "${PYTHON_BIN:-}" ]]; then
   if command -v python3.11 >/dev/null 2>&1; then
     PYTHON_BIN="$(command -v python3.11)"
@@ -16,13 +16,13 @@ PT2HLO_OUT="${PT2HLO_OUT:-$ROOT_DIR/pt2hlo/out_qkv_dse_demo}"
 COMPILED_DIR="${COMPILED_DIR:-$ROOT_DIR/asm/qkv_dse_demo}"
 LOG_ROOT="${LOG_ROOT:-$ROOT_DIR/log/qkv_dse_demo}"
 PLOT_OUT="${PLOT_OUT:-$ROOT_DIR/demo_output/qkv_dse_demo}"
-HW_RESOURCE_CONFIG="${HW_RESOURCE_CONFIG:-$ROOT_DIR/dse/config/primitive_hw_config.json}"
+HW_RESOURCE_CONFIG="${HW_RESOURCE_CONFIG:-$ROOT_DIR/phase1_dse/dse/config/primitive_hw_config.json}"
 ISA_COST_REFRESH="${ISA_COST_REFRESH:-1}"
 
 mkdir -p "$COMPILED_DIR" "$LOG_ROOT" "$PLOT_OUT"
 
 if [[ "$ISA_COST_REFRESH" == "1" ]]; then
-  SKIP_REGEN=1 HW_RESOURCE_CONFIG="$HW_RESOURCE_CONFIG" "$ROOT_DIR/run_qkv_dse_primitives.sh"
+  SKIP_REGEN=1 HW_RESOURCE_CONFIG="$HW_RESOURCE_CONFIG" "$ROOT_DIR/scripts/bash/run_qkv_dse_primitives.sh"
 fi
 
 mapfile -t HLOS < <(find "$PT2HLO_OUT" -maxdepth 1 -name 'workload_*.hlo' | sort)

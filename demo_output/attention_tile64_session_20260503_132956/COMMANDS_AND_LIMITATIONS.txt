@@ -1,0 +1,32 @@
+Session: 20260503_132956
+Workload you asked for: workloads/attention_64x64.hlo (ATTN_TILE64 backend)
+
+## What ran ON THIS NODE (no Docker)
+1) ISA cost plots — replotted from existing artifacts from a prior attn_tile64_demo run
+   (compiled: asm/attn_tile64_demo/*.py, candidates: log/attn_tile64_demo/demo_000/*.py).
+   These reflect the same backend/cost model as ACT; the upstream HLO may be the pt2hlo
+   workload_*.hlo used when demo_000 was generated, not necessarily a fresh compile of
+   attention_64x64.hlo.
+
+2) Static energy — dse.energy_workload on log/attn_tile64_demo/demo_000/0.pii with --plot.
+
+## What you need to compile attention_64x64.hlo FRESH (ACT docs)
+From ACT repo root INSIDE the ACT Docker image (Jammy + conda), where glibc and OR-Tools match the prebuilt binary:
+
+  export LD_LIBRARY_PATH=/opt/ortools/lib:${LD_LIBRARY_PATH:-}
+  ./backends/ATTN_TILE64 \
+    --input ./workloads/attention_64x64.hlo \
+    --output ./asm/my_run/attention_64x64.py \
+    --log ./log/my_run/attention_64x64
+
+  python3 ./plot_isa_workload_costs.py \
+    --backend-dir ./targets/ATTN_TILE64/backend \
+    --compiled-dir ./asm/my_run \
+    --candidate-dir ./log/my_run/attention_64x64 \
+    --out-dir ./demo_output/my_run_plots
+
+Enter the container per act/docker/run.sh or act/tutorials/micro25/setup.md (docker.sh --setup).
+
+## Why compile was not run here
+  ldd ./backends/ATTN_TILE64  →  GLIBC_2.32+ and libortools.so.9 not satisfied on this RHEL8 host.
+  docker run hello-world  →  Podman storage path permission error for this user.

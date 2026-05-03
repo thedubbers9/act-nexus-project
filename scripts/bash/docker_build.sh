@@ -1,8 +1,10 @@
 #!/bin/bash
 set -euo pipefail
 
-# Change to script directory
-cd "$(dirname "$0")"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# Dockerfiles and requirements.yml live under act/docker/ (not this scripts/ folder).
+DOCKER_DIR="$(cd "${SCRIPT_DIR}/../../docker" && pwd)"
+cd "${DOCKER_DIR}"
 
 # Detect architecture
 ARCH=$(uname -m)
@@ -128,7 +130,7 @@ fi
 
 # Build
 echo
-echo "Building ${IMAGE_NAME}..."
+echo "Building ${IMAGE_NAME} from ${DOCKER_DIR}..."
 docker build -f "${DOCKERFILE}" -t "${IMAGE_NAME}" .
 
 # Prune dangling images

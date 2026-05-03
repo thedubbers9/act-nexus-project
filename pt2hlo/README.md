@@ -190,7 +190,7 @@ and computes:
 
 It intentionally uses a manual `exp / sum / divide` softmax instead of
 `torch.softmax(...)` so the exported HLO stays close to the current ACT
-reference workload in `../workloads/attention_tile64_workable.hlo`.
+reference workload in `../workloads/gemmini_anchor_attention_tile64.hlo`.
 
 Example:
 
@@ -216,7 +216,7 @@ python pt2hlo.py \
   --input "64,64:bfloat16" \
   --input "64,64:bfloat16" \
   --input "64,64:bfloat16" \
-  --allow-ops-from-hlo ../workloads/attention_tile64_workable.hlo \
+  --allow-ops-from-hlo ../workloads/gemmini_anchor_attention_tile64.hlo \
   --strict-ops \
   --output-dir out_attention_core64_checked
 ```

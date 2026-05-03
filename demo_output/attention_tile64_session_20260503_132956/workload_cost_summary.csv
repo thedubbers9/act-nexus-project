@@ -1,0 +1,2 @@
+label,path,total_energy_pj,used_fallback,gemm_energy_pj,load_cm_energy_pj,load_rm_energy_pj,mov_energy_pj,softmax_energy_pj,store_rm_energy_pj,gemm_calls,load_cm_calls,load_rm_calls,mov_calls,softmax_calls,store_rm_calls
+demo_000,/scratch/krish/MLIR-hardware-analysis/submodule/act/asm/attn_tile64_demo/demo_000.py,1142944.3885312001,False,864737.28,7153.0960256,14306.1920512,14306.1920512,235288.53237759997,7153.0960256,2,1,2,2,1,1
