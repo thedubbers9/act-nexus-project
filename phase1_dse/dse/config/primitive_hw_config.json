@@ -15,34 +15,7 @@
     "s32": 4,
     "u32": 4
   },
-  "abstraction_classes": {
-    "input_literal": {
-      "resource_class": "host_or_hbm_interface",
-      "implementation": "hbm_controller_or_constant_rom",
-      "unit_count": 0,
-      "area_per_unit_mm2": 0.0,
-      "energy_per_op_pj": 0.0,
-      "energy_per_byte_pj": 0.0
-    },
-    "logical_view": {
-      "resource_class": "non_materialized_layout",
-      "implementation": "compiler_managed_view_no_dedicated_ip",
-      "unit_count": 0,
-      "area_per_unit_mm2": 0.0,
-      "energy_per_op_pj": 0.0,
-      "energy_per_byte_pj": 0.0,
-      "materialize_outputs": false
-    },
-    "contiguous_move": {
-      "resource_class": "scratchpad_dma",
-      "implementation": "axi_dma_datamover_micro",
-      "unit_count": 2,
-      "area_per_unit_mm2": 0.043439787,
-      "energy_per_op_pj": 0.0,
-      "energy_per_byte_pj": 0.43659033359375,
-      "bandwidth_bytes_per_cycle": 128,
-      "calibration_target": "axi_dma scaled 4x down (128 B/cycle from 512)"
-    },
+  "cost_tags": {
     "tensor_compute": {
       "resource_class": "matrix_engine",
       "implementation": "systolic_array_8x8_64mac",
@@ -56,7 +29,29 @@
       "throughput_ops_per_cycle": 128,
       "calibration_target": "Path C scoped PT on full-chip locked Gemmini (200us, SAIF_CAPTURE_CYCLES=20000): ex_controller scoped total power ~=66.5mW for both matmul and attn_proxy. Kept energy_per_op_pj unchanged pending event-count normalization."
     },
-    "vector_compute_add": {
+    "tensor_compute_tiled": {
+      "resource_class": "matrix_engine",
+      "implementation": "systolic_array_8x8_64mac",
+      "unit_count": 1,
+      "area_per_unit_mm2": 0.5,
+      "dynamic_power_mw": 66.5,
+      "clock_mhz": 640.0,
+      "effective_ops_per_cycle": 128,
+      "energy_per_op_pj": 0.149125,
+      "energy_per_byte_pj": 0.015,
+      "throughput_ops_per_cycle": 128,
+      "calibration_target": "Path C scoped PT on full-chip locked Gemmini (200us, SAIF_CAPTURE_CYCLES=20000): ex_controller scoped total power ~=66.5mW for both matmul and attn_proxy. Kept energy_per_op_pj unchanged pending event-count normalization."
+    },
+    "zero_cost": {
+      "resource_class": "non_materialized_layout",
+      "implementation": "compiler_managed_view_no_dedicated_ip",
+      "unit_count": 0,
+      "area_per_unit_mm2": 0.0,
+      "energy_per_op_pj": 0.0,
+      "energy_per_byte_pj": 0.0,
+      "materialize_outputs": false
+    },
+    "onchip_compute": {
       "resource_class": "vector_engine_add_logic",
       "implementation": "tile64_vector_add_16lane_micro",
       "unit_count": 1,
@@ -69,33 +64,7 @@
       "throughput_ops_per_cycle": 16,
       "calibration_target": "ADD_16b unit cell x16 lanes (4x down from 64)"
     },
-    "vector_compute_mul": {
-      "resource_class": "vector_engine_mul",
-      "implementation": "tile64_vector_mul_16lane_micro",
-      "unit_count": 1,
-      "area_per_unit_mm2": 0.041139456,
-      "dynamic_power_mw": 4.5216,
-      "clock_mhz": 100.0,
-      "effective_ops_per_cycle": 16,
-      "energy_per_op_pj": 2.826,
-      "energy_per_byte_pj": 0.015,
-      "throughput_ops_per_cycle": 16,
-      "calibration_target": "MUL_16b unit cell x16 lanes (4x down from 64)"
-    },
-    "vector_compute_div": {
-      "resource_class": "vector_engine_div",
-      "implementation": "tile64_vector_div_16lane_micro",
-      "unit_count": 1,
-      "area_per_unit_mm2": 0.275243984,
-      "dynamic_power_mw": 27.70707648,
-      "clock_mhz": 100.0,
-      "effective_ops_per_cycle": 16,
-      "energy_per_op_pj": 17.3169228,
-      "energy_per_byte_pj": 0.015,
-      "throughput_ops_per_cycle": 16,
-      "calibration_target": "FloorDiv_16_flopped x16 lanes (4x down from 64)"
-    },
-    "special_math": {
+    "host_fallback": {
       "resource_class": "vector_special_function_engine",
       "implementation": "tile64_vector_special_math_16lane_micro",
       "unit_count": 1,
@@ -108,15 +77,60 @@
       "throughput_ops_per_cycle": 16,
       "calibration_target": "cordictanh x16 lanes (4x down from 64)"
     },
-    "reduction": {
-      "resource_class": "reduction_engine",
-      "implementation": "adder_tree_or_vector_reduce_tree_micro",
+    "activation_tag": {
+      "resource_class": "vector_engine_add_logic",
+      "implementation": "tile64_vector_add_16lane_micro",
       "unit_count": 1,
-      "area_per_unit_mm2": 0.075,
-      "energy_per_op_pj": 0.18,
+      "area_per_unit_mm2": 0.0050048,
+      "dynamic_power_mw": 0.38032,
+      "clock_mhz": 100.0,
+      "effective_ops_per_cycle": 16,
+      "energy_per_op_pj": 0.2377,
       "energy_per_byte_pj": 0.015,
-      "throughput_ops_per_cycle": 32,
-      "calibration_target": "adder_tree RTL (4x down from 128 to 32 ops/cycle)"
+      "throughput_ops_per_cycle": 16,
+      "calibration_target": "ADD_16b unit cell x16 lanes (4x down from 64)"
+    },
+    "special_function": {
+      "resource_class": "vector_special_function_engine",
+      "implementation": "tile64_vector_special_math_16lane_micro",
+      "unit_count": 1,
+      "area_per_unit_mm2": 0.43599816,
+      "dynamic_power_mw": 90.97751296,
+      "clock_mhz": 100.0,
+      "effective_ops_per_cycle": 16,
+      "energy_per_op_pj": 56.8609456,
+      "energy_per_byte_pj": 0.015,
+      "throughput_ops_per_cycle": 16,
+      "calibration_target": "cordictanh x16 lanes (4x down from 64)"
+    },
+    "control_addressing": {
+      "resource_class": "non_materialized_layout",
+      "implementation": "compiler_managed_view_no_dedicated_ip",
+      "unit_count": 0,
+      "area_per_unit_mm2": 0.0,
+      "energy_per_op_pj": 0.0,
+      "energy_per_byte_pj": 0.0,
+      "materialize_outputs": false
+    },
+    "onchip_movement": {
+      "resource_class": "scratchpad_dma",
+      "implementation": "axi_dma_datamover_micro",
+      "unit_count": 2,
+      "area_per_unit_mm2": 0.043439787,
+      "energy_per_op_pj": 0.0,
+      "energy_per_byte_pj": 0.43659033359375,
+      "bandwidth_bytes_per_cycle": 128,
+      "calibration_target": "axi_dma scaled 4x down (128 B/cycle from 512)"
+    },
+    "offchip_movement": {
+      "resource_class": "scratchpad_dma",
+      "implementation": "axi_dma_datamover_micro",
+      "unit_count": 2,
+      "area_per_unit_mm2": 0.043439787,
+      "energy_per_op_pj": 0.0,
+      "energy_per_byte_pj": 0.43659033359375,
+      "bandwidth_bytes_per_cycle": 128,
+      "calibration_target": "axi_dma scaled 4x down (128 B/cycle from 512)"
     },
     "uncategorized": {
       "resource_class": "unmapped_engine",
@@ -126,5 +140,10 @@
       "energy_per_op_pj": 0.0,
       "energy_per_byte_pj": 0.0
     }
+  },
+  "migration_notes": {
+    "cost_model_schema": "realization_first_v1",
+    "replaced_section": "abstraction_classes",
+    "details": "Migrated from abstraction_classes to cost_tags for realization-first estimator. Legacy abstraction-class configs are still accepted by estimator compatibility logic."
   }
 }
