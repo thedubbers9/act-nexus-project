@@ -1,4 +1,4 @@
-"""CLI: estimate static energy (pJ) for Gemmini-style .pii workloads."""
+"""CLI: estimate energy (pJ) for Gemmini-style .pii workloads."""
 
 import argparse
 import csv
@@ -15,7 +15,14 @@ def _write_per_candidate_csv(rows, path):
     path.parent.mkdir(parents=True, exist_ok=True)
     if not rows:
         return
-    fieldnames = ["candidate", "kernel_name", "total_energy_pj", "by_cost_tag_pj", "by_realization_pj"]
+    fieldnames = [
+        "candidate",
+        "kernel_name",
+        "total_energy_pj",
+        "by_cost_tag_pj",
+        "by_realization_pj",
+        "gemmini_schedule_events",
+    ]
     with path.open("w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=fieldnames)
         w.writeheader()
@@ -27,6 +34,7 @@ def _write_per_candidate_csv(rows, path):
                     "total_energy_pj": r["total_energy_pj"],
                     "by_cost_tag_pj": json.dumps(r["by_cost_tag_pj"]),
                     "by_realization_pj": json.dumps(r["by_realization_pj"]),
+                    "gemmini_schedule_events": json.dumps(r.get("gemmini_schedule_events", {})),
                 }
             )
 
@@ -50,6 +58,7 @@ def run_energy_workload(input_path, hw_config_path, out_dir, mapping_json_path, 
                 "total_energy_pj": est["total_energy_pj"],
                 "by_cost_tag_pj": est["by_cost_tag_pj"],
                 "by_realization_pj": est["by_realization_pj"],
+                "gemmini_schedule_events": est.get("gemmini_schedule_events", {}),
             }
         )
 
@@ -82,7 +91,7 @@ def run_energy_workload(input_path, hw_config_path, out_dir, mapping_json_path, 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Static energy (pJ) from .pii + realization mapping + primitive hw cost tags"
+        description="Energy (pJ) from .pii + realization mapping + primitive hw cost tags"
     )
     parser.add_argument("--input", required=True, help=".pii file or directory of candidates")
     parser.add_argument(

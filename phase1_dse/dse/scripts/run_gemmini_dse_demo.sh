@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Hardware-mapping + cost-model static energy on .pii (no roofline / no pre-schedule hook).
+# Hardware-mapping + cost-model energy on .pii (no roofline / no pre-schedule hook).
 # Uses: phase1_dse/dse/src/energy_workload.py + primitive_hw_config.json +
 #       phase1_dse/dse/hardware_interface/hardware_mapping_interface_package/final_mapping.json (via energy_estimate).
 #
@@ -24,7 +24,7 @@ if [[ "${NO_PLOT:-0}" != "1" ]]; then
   PLOT_FLAG=(--plot)
 fi
 
-echo "== Static energy (primitive_hw_config + hardware mapping / fused patterns) =="
+echo "== Energy (primitive_hw_config + hardware mapping / fused patterns) =="
 python3 -m dse.energy_workload \
   --input "$PII" \
   --hw_config phase1_dse/dse/config/primitive_hw_config.json \

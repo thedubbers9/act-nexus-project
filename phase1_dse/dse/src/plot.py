@@ -84,7 +84,7 @@ def plot_required_bw_vs_target_latency(inverse_rows, out_path):
     return True
 
 
-def plot_energy_by_class(by_class_pj, out_path, title="Static energy by abstraction class (pJ)"):
+def plot_energy_by_class(by_class_pj, out_path, title="Energy by abstraction class (pJ)"):
     """Horizontal bar chart of energy (pJ) per abstraction class."""
     try:
         import matplotlib.pyplot as plt

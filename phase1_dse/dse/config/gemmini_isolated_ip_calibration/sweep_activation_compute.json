@@ -1,0 +1,26 @@
+{
+  "ip_id": "activation_compute",
+  "records": [
+    {
+      "workload_size": 1,
+      "op_type": "activation_bf16_elem",
+      "op_count": 64,
+      "dynamic_energy_uj": 0.00017944286340000002,
+      "energy_pj_per_op": 2.8037947406250003
+    },
+    {
+      "workload_size": 16,
+      "op_type": "activation_bf16_elem",
+      "op_count": 1024,
+      "dynamic_energy_uj": 0.00237319283232,
+      "energy_pj_per_op": 2.3175711253125
+    },
+    {
+      "workload_size": 256,
+      "op_type": "activation_bf16_elem",
+      "op_count": 16384,
+      "dynamic_energy_uj": 0.036657066639360004,
+      "energy_pj_per_op": 2.2373697900000002
+    }
+  ]
+}

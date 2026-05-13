@@ -89,6 +89,15 @@ def _parse_op(op_text):
     return name, attrs
 
 
+def _parse_children(children_text):
+    children = []
+    for tok in children_text.split(','):
+        tok = tok.strip()
+        if tok:
+            children.append(tok)
+    return children
+
+
 def parse_pii(path):
     p = Path(path)
     instructions = []
@@ -108,7 +117,10 @@ def parse_pii(path):
         offset = int(m.group('offset'))
         op_raw = m.group('op').strip()
         op_name, attrs = _parse_op(op_raw)
+        children = _parse_children(m.group('children'))
 
+        attrs['_id'] = int(m.group('id'))
+        attrs['_children'] = children
         attrs['_dtype'] = dtype
         attrs['_shape'] = shape
         attrs['_buffer'] = buffer_name
@@ -118,6 +130,21 @@ def parse_pii(path):
 
     if not instructions:
         raise ParseError("No instruction lines found in {}".format(p))
+
+    # Add lightweight producer metadata so later analysis can distinguish,
+    # for example, HBM store from SPAD vs HBM store from ACC.
+    producers = {}
+    for ins in instructions:
+        producers["t{}".format(ins.attrs.get('_id'))] = {
+            "buffer": ins.attrs.get('_buffer'),
+            "dtype": ins.attrs.get('_dtype'),
+            "shape": ins.attrs.get('_shape'),
+        }
+    for ins in instructions:
+        child_meta = []
+        for child in ins.attrs.get('_children', []):
+            child_meta.append(producers.get(child, {"buffer": None, "dtype": None, "shape": []}))
+        ins.attrs['_child_meta'] = child_meta
 
     metadata = KernelMetadata(hbm=None, input_tensors=[], output_tensors=[], constant_tensors=[])
     kernel_name = p.stem

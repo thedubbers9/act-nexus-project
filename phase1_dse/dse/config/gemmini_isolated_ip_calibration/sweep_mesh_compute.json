@@ -1,0 +1,26 @@
+{
+  "ip_id": "mesh_compute",
+  "records": [
+    {
+      "workload_size": 1,
+      "op_type": "bf16_mac_tile8",
+      "op_count": 512,
+      "dynamic_energy_uj": 0.0026122336080000004,
+      "energy_pj_per_op": 5.102018765625001
+    },
+    {
+      "workload_size": 16,
+      "op_type": "bf16_mac_tile8",
+      "op_count": 8192,
+      "dynamic_energy_uj": 0.04160689702399999,
+      "energy_pj_per_op": 5.078966921874999
+    },
+    {
+      "workload_size": 256,
+      "op_type": "bf16_mac_tile8",
+      "op_count": 131072,
+      "dynamic_energy_uj": 0.666040096768,
+      "energy_pj_per_op": 5.081482671875
+    }
+  ]
+}

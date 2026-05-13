@@ -1,0 +1,8 @@
+PrimeTime reports copied from:
+  /scratch/krish/better-mflowgen-template-repo/better-mflowgen/mflowgen/builds/gemmini_chipyard_locked_bf16_matmul/24-synopsys-pt-power/reports/
+
+VCS SAIF (not copied here; large) path:
+  /scratch/krish/better-mflowgen-template-repo/better-mflowgen/mflowgen/builds/gemmini_chipyard_locked_bf16_matmul/20-synopsys-vcs-sim/outputs/run.saif
+
+Archived earlier under MLIR docs (optional duplicate):
+  docs/calibration/artifacts/runs/matmul_64x64_wholechip_gemmini_chipyard_locked_bf16_matmul/

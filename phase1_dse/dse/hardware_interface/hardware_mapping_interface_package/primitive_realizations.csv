@@ -40,7 +40,7 @@ copy,onchip_move,1,SPAD ↔ ACC or SPAD ↔ SPAD,"Internal datapath (like mov/mo
 slice,affine_addressing,1,submatrix via mvin/mvout row/col counts + strides,"Addressing only; no separate slice engine."
 slice,dma_extract,0,sliced result must be standalone dense tensor,"DMA copy to new SPAD region. Cost = slice bytes."
 concatenate,dma_staging,1,stage operands into adjacent SPAD/ACC regions,"Sequential mvins. Cost = total bytes of all operands."
-dynamic_update_slice,standalone_rocket,1,irregular indexed update,"No gather/scatter on baseline Gemmini; Rocket scalar loops."
+dynamic_update_slice,standalone_rocket,1,irregular indexed update,"No gather/scatter on standard Gemmini; Rocket scalar loops."
 parameter,host_to_device,1,tensor input from host,"DRAM → mvin into SPAD or ACC."
 constant,host_to_device,1,literal from host memory,"DRAM → mvin into SPAD or ACC."
 select_lt,standalone_rocket,1,TAIDL composite; expand then host,"Expands to compare+select; Rocket core."

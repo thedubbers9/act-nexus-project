@@ -79,7 +79,8 @@ def main():
     # --- Right: per-bucket (PT vs ACT v1) ---
     ax = axes[1]
     if v1:
-        order = ["mesh", "scratchpad", "controller_dma", "glue"]
+        # Preliminary: mesh + glue only (omit scratchpad & controller_dma).
+        order = ["mesh", "glue"]
         pt_b = v1["pt_window_bucket_uj"]
         act_b = v1["act_window_bucket_uj"]
         pt_vals = [float(pt_b.get(k) or 0) for k in order]
@@ -90,7 +91,12 @@ def main():
         ax.bar(xi - w / 2, pt_vals, w, label="PrimeTime", color="#2ca02c", edgecolor="black", linewidth=0.5)
         ax.bar(xi + w / 2, act_vals, w, label="ACT (v1 term map)", color="#ff7f0e", edgecolor="black", linewidth=0.5)
         ax.set_ylabel("Energy (µJ)")
-        ax.set_title("Per-bucket energy (same {} µs window)".format(cap_us))
+        ax.set_title(
+            "Per-bucket: mesh + glue ({} µs) — scratchpad & controller_dma omitted".format(
+                cap_us
+            ),
+            fontsize=9,
+        )
         ax.set_xticks(xi)
         ax.set_xticklabels(labels, fontsize=8)
         ax.legend(loc="upper right", fontsize=8)

@@ -25,9 +25,9 @@
       "clock_mhz": 640.0,
       "effective_ops_per_cycle": 128,
       "energy_per_op_pj": 0.149125,
-      "energy_per_byte_pj": 0.015,
+      "energy_per_byte_pj": 19.0,
       "throughput_ops_per_cycle": 128,
-      "calibration_target": "Path C scoped PT on full-chip locked Gemmini (200us, SAIF_CAPTURE_CYCLES=20000): ex_controller scoped total power ~=66.5mW for both matmul and attn_proxy. Kept energy_per_op_pj unchanged pending event-count normalization."
+      "calibration_target": "Operand/scratchpad byte energy aligned to sram_energy_per_byte_pj for matmul dot/gemm proxy."
     },
     "tensor_compute_tiled": {
       "resource_class": "matrix_engine",
@@ -38,9 +38,9 @@
       "clock_mhz": 640.0,
       "effective_ops_per_cycle": 128,
       "energy_per_op_pj": 0.149125,
-      "energy_per_byte_pj": 0.015,
+      "energy_per_byte_pj": 19.0,
       "throughput_ops_per_cycle": 128,
-      "calibration_target": "Path C scoped PT on full-chip locked Gemmini (200us, SAIF_CAPTURE_CYCLES=20000): ex_controller scoped total power ~=66.5mW for both matmul and attn_proxy. Kept energy_per_op_pj unchanged pending event-count normalization."
+      "calibration_target": "Operand/scratchpad byte energy aligned to sram_energy_per_byte_pj for matmul dot/gemm proxy."
     },
     "zero_cost": {
       "resource_class": "non_materialized_layout",
@@ -118,9 +118,9 @@
       "unit_count": 2,
       "area_per_unit_mm2": 0.043439787,
       "energy_per_op_pj": 0.0,
-      "energy_per_byte_pj": 0.43659033359375,
+      "energy_per_byte_pj": 19.0,
       "bandwidth_bytes_per_cycle": 128,
-      "calibration_target": "axi_dma scaled 4x down (128 B/cycle from 512)"
+      "calibration_target": "Presentation-safe Sky130 SRAM/SPAD byte proxy: 19.0 pJ/B. This is still a byte proxy, not an isolated Gemmini SPAD IP measurement."
     },
     "offchip_movement": {
       "resource_class": "scratchpad_dma",
@@ -128,9 +128,9 @@
       "unit_count": 2,
       "area_per_unit_mm2": 0.043439787,
       "energy_per_op_pj": 0.0,
-      "energy_per_byte_pj": 0.43659033359375,
+      "energy_per_byte_pj": 60.0,
       "bandwidth_bytes_per_cycle": 128,
-      "calibration_target": "axi_dma scaled 4x down (128 B/cycle from 512)"
+      "calibration_target": "Preliminary matmul: VRAM/HBM-style byte energy 60 pJ/B (see memory_energy_pj_per_byte)."
     },
     "uncategorized": {
       "resource_class": "unmapped_engine",
@@ -145,5 +145,139 @@
     "cost_model_schema": "realization_first_v1",
     "replaced_section": "abstraction_classes",
     "details": "Migrated from abstraction_classes to cost_tags for realization-first estimator. Legacy abstraction-class configs are still accepted by estimator compatibility logic."
+  },
+  "gemmini_schedule_event_model": {
+    "enabled": true,
+    "tile_dim": 8,
+    "acc_bytes_per_elem": 4,
+    "charge_onchip_memory_movement": true,
+    "onchip_memory_cost_tag": "onchip_movement",
+    "sram_energy_per_byte_pj": 19.0,
+    "count_dma_commands_per_tile": true,
+    "match_fullchip_tiled_probe_v3": true,
+    "exclude_accumulator_event_bytes": true,
+    "notes": "V3 Gemmini schedule expansion: charge explicit SPAD/local/on-chip movement event bytes as onchip_movement at 19.0 pJ/byte, a Sky130 SRAM/SPAD byte proxy. This is intentionally not a full SPAD hierarchy model; it does not include SPAD active-window/control/local-clock overhead. DMA command counts are expanded per 8x8 tile, and GEMM/MAC symbolic loads are expanded to match the current full-chip tiled probe, which reloads operands for each compute tile pass. Accumulator-prefixed bytes are excluded when gemmini_accumulator_event_model is enabled so ACC activity is not double counted. External offchip_read/write_bytes are intentionally excluded because full-chip PrimeTime does not model external DRAM/HBM energy."
+  },
+  "gemmini_accumulator_event_model": {
+    "enabled": true,
+    "cost_tag": "gemmini_accumulator",
+    "source": "isolated ACC read/write/RMW PrimeTime sweep summary",
+    "physical_build": "better-mflowgen/mflowgen/builds/acc_tiles_1",
+    "method": "PrimeTime total power integrated over VCS SAIF window; event coefficient is the fitted slope of activity-mode energy minus matching idle energy on the same routed ACC netlist across WORKLOAD_TILES=1,16,256. The corrected activity sweep normalizes by valid-cycle 32B chunk counts and uses sequential read then write phases for RMW because same-cycle read/write to one ACC address is unsupported by AccumulatorMem.",
+    "tile_bytes": 32,
+    "calibration_tile_sweep": [
+      1,
+      16,
+      256
+    ],
+    "saif_duration_ns": 5220.0,
+    "idle_power_w": 0.058339123,
+    "energy_pj_per_tile": {
+      "read": 2.021599869046874,
+      "write": 2.019498474358506,
+      "read_modify_write": 2.0533887202371295
+    },
+    "energy_pj_per_op": {
+      "read": 0.12636378387446712,
+      "write": 0.12623269119259817,
+      "read_modify_write": 0.1283510583495513
+    },
+    "energy_pj_per_total_byte": {
+      "read": 0.06318189193723356,
+      "write": 0.06311634559629908,
+      "read_modify_write": 0.032087764587387824
+    },
+    "fit_delta_vs_idle_r2": {
+      "read": 0.9999999649531092,
+      "write": 0.9999999636170505,
+      "read_modify_write": 0.9999999631281846
+    },
+    "active_energy_pj_per_chunk": {
+      "read": 583.893433,
+      "write": 583.892912,
+      "read_modify_write": 1167.8026619999998
+    },
+    "active_delta_pj_per_chunk": {
+      "read": 0.5022059999999773,
+      "write": 0.5016849999999601,
+      "read_modify_write": 1.0202079999999114
+    },
+    "active_envelope": {
+      "enabled": true,
+      "cost_tag": "gemmini_accumulator_envelope",
+      "energy_pj_per_active_cycle": 581.1979996666666,
+      "diagnostic_active_total_pj_per_active_cycle": 581.5841505555557,
+      "cycles_per_read_tile": 1.0,
+      "cycles_per_write_tile": 1.0,
+      "cycles_per_read_modify_write_tile": 2.0,
+      "method": "IP-derived clocked envelope. Uses matching idle ACC IP power times clock period as pJ/active-cycle, then adds read/write/RMW idle-subtracted data-toggle coefficients separately."
+    },
+    "notes": "Isolated ACC delta model from corrected idle/read/write/RMW SAIFs on one routed ACC IP, fit across 1/16/256-tile activity sweeps. The current routed wrapper does not expose ready signals, so the activity-only rerun counts valid active-cycle chunks rather than true ready/valid fires. True fire-based calibration requires a wrapper change and physical rerun. The active_envelope action is recorded as a separate IP-derived clocked active-cycle term; read/write/RMW coefficients remain idle-subtracted data-toggle terms."
+  },
+  "gemmini_locked_bf16_isolated_ip_calibration": {
+    "model_form": "dynamic_energy_uj = coef_uj_per_tile * workload_tiles_N + intercept_uj",
+    "workload_tiles_N": "Same as isolated-IP TB WORKLOAD_TILES (1, 16, 256).",
+    "source": "postprocess_and_fit.py on better-mflowgen mflowgen/builds/*_tiles_*",
+    "generated_config_dir": "phase1_dse/dse/config/gemmini_isolated_ip_calibration",
+    "fits": {
+      "activation_compute": {
+        "coef_uj_per_tile": 0.000142961579373978,
+        "intercept_uj": 6.0397055328002824e-05,
+        "rmse_uj": 2.0165087141078706e-05,
+        "r2": 0.9999985424339402,
+        "fit_workload_tiles": [
+          1.0,
+          16.0,
+          256.0
+        ],
+        "fit_dynamic_energy_uj": [
+          0.00017944286340000002,
+          0.00237319283232,
+          0.036657066639360004
+        ]
+      },
+      "mesh_compute": {
+        "coef_uj_per_tile": 0.002601733764717949,
+        "intercept_uj": -4.696789333347162e-06,
+        "rmse_uj": 1.2813361403691454e-05,
+        "r2": 0.9999999982230804,
+        "fit_workload_tiles": [
+          1.0,
+          16.0,
+          256.0
+        ],
+        "fit_dynamic_energy_uj": [
+          0.0026122336080000004,
+          0.04160689702399999,
+          0.666040096768
+        ]
+      },
+      "transposer_compute": {
+        "coef_uj_per_tile": 5.248765830605128e-05,
+        "intercept_uj": -1.3291444906661047e-06,
+        "rmse_uj": 3.4862523253131617e-07,
+        "r2": 0.9999999967680057,
+        "fit_workload_tiles": [
+          1.0,
+          16.0,
+          256.0
+        ],
+        "fit_dynamic_energy_uj": [
+          5.157198296000001e-05,
+          0.0008380340774399999,
+          0.01343553722368
+        ]
+      }
+    },
+    "acc_compute_note": "Accumulator activity is now modeled by gemmini_accumulator_event_model using an isolated-IP idle-subtracted read/write/RMW slope fit."
+  },
+  "memory_energy_pj_per_byte": {
+    "hbm_energy_per_byte_pj": 60.0,
+    "sram_energy_per_byte_pj": 19.0,
+    "notes": "VRAM/HBM-style traffic: 60 pJ/byte (GDDR6 class ~7.5 pJ/bit). On-chip SRAM/SPAD byte proxy: 19.0 pJ/byte for Sky130 presentation comparisons. Applied via cost_tags offchip_movement / onchip_movement / tensor_compute energy_per_byte_pj. This is not a full SPAD active-window/control model.",
+    "references": [
+      "Horowitz ISSCC 2014 (Computing's energy problem)",
+      "O'Connor MICRO 2017; Chatterjee HPCA 2017 (DRAM/GPU memory energy)"
+    ]
   }
 }

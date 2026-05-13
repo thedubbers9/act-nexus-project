@@ -1,8 +1,21 @@
-# Cursor helpers (PrimeTime / run bundles / ACT vs PT)
+# Cursor helpers (legacy PrimeTime / run-bundle helpers)
 
 **Canonical location:** `submodule/act/phase1_dse/dse/scripts/cursor_helpers/` inside the ACT submodule (tracked in git).
 
-These are **shell + Python** helpers for PrimeTime bundles, PT hierarchy parsing, preflight checks, and scaling tables. **`eda/`** holds Tcl + `run_pt_post_sanity.sh` for optional PT post-checks.
+These are optional helper scripts from the earlier PrimeTime/run-bundle workflow.
+They are **not required** to regenerate the current two presentation graphs in
+`submodule/act/out/graphs`.
+
+The current graph path is:
+
+- `scripts/make_pt_vs_act_energy_breakdown.py`
+- `scripts/make_candidate_energy_profiles_gemm64.py`
+- source CSVs under `out/graphs/source_data/`
+
+The helpers below are kept only for ad-hoc PT hierarchy parsing, old bundle
+audits, and preflight checks. Some of them reference the older parent-repo
+`docs/calibration/` layout, which is not part of the current presentation graph
+bundle.
 
 | File | Role (short) |
 |------|----------------|
@@ -15,5 +28,3 @@ These are **shell + Python** helpers for PrimeTime bundles, PT hierarchy parsing
 | `phase_f_preflight.sh` | Thin wrapper / preflight hook |
 | `risky_run_preflight.sh` | Guardrails before long runs |
 | `eda/` | `pt_post_sanity.tcl`, `run_pt_post_sanity.sh` |
-
-**Calibration markdown** lives in the parent MLIR repo: **`docs/calibration/`** (index + `run_bundles/_template`), not under this directory.

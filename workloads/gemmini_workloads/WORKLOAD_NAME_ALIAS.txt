@@ -1,0 +1,12 @@
+Canonical 64x64 bf16 dot smoke HLO: ../matmul_64x64.hlo (HloModule name: matmul_64x64).
+
+Symlinks in this directory:
+  matmul_64x64.hlo    -> ../matmul_64x64.hlo   (matches runbooks: workloads/matmul_64x64.hlo)
+  matmul_os_64x64.hlo -> ../matmul_64x64.hlo   (legacy OS-oriented filename; same program)
+
+ACT batch script (scripts/_act_gemmini_workloads_inner.sh) deduplicates by real path so the same graph is not compiled twice.
+
+TAIDL 'Gemmini.py' / 'backends/Gemmini' (s8 scratchpad, 16x16 tiles): use
+'../matmul_gemmini_ta_s8_16x16.hlo' — same shape as the 'matmul8' instruction
+semantics (bf16[64,64] is for 'GEMMINI_17' / 'matmul_64x64.hlo').
+

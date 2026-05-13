@@ -1,0 +1,8 @@
+HloModule matmul_gemmini_ta_s8_16x16, entry_computation_layout={(s8[16,16]{1,0}, s8[16,16]{1,0})->s8[16,16]{1,0}}
+
+ENTRY main {
+  %lhs = s8[16,16] parameter(0)
+  %rhs = s8[16,16] parameter(1)
+  ROOT %out = s8[16,16] dot(%lhs, %rhs), lhs_contracting_dims={1}, rhs_contracting_dims={0}
+}
+

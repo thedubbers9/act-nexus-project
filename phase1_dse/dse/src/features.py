@@ -105,6 +105,47 @@ def _instruction_contrib(ins, width, bytes_per_elem):
         w = width
         hbm_write = n * w * bytes_per_elem
         local = n * w * bytes_per_elem
+    elif name.startswith("mvin_"):
+        # Gemmini TA (mvin_spad, mvin_acc, ...): same HBM read proxy as load_rm.
+        w = width
+        if isinstance(shape, (list, tuple)) and len(shape) >= 2 and isinstance(shape[1], int):
+            w = float(shape[1])
+        hbm_read = n * w * bytes_per_elem
+        local = n * w * bytes_per_elem
+    elif name.startswith("mvout_"):
+        w = width
+        if isinstance(shape, (list, tuple)) and len(shape) >= 2 and isinstance(shape[1], int):
+            w = float(shape[1])
+        hbm_write = n * w * bytes_per_elem
+        local = n * w * bytes_per_elem
+    elif name in ("matmul8", "matmul32"):
+        # TAIDL Gemmini matmul instructions: same MAC/operand proxy as gemm.
+        m = width
+        nn = width
+        if isinstance(shape, (list, tuple)) and len(shape) >= 2:
+            if isinstance(shape[0], int) and shape[0] > 0:
+                m = float(shape[0])
+            if isinstance(shape[1], int) and shape[1] > 0:
+                nn = float(shape[1])
+        k = width
+        ops = 2.0 * m * k * nn
+        local = (m * k + k * nn + m * nn) * bytes_per_elem
+        hbm_read = (m * k + k * nn) * bytes_per_elem
+        hbm_write = m * nn * bytes_per_elem
+    elif name == "dot":
+        # Same byte/op accounting as gemm (HLO dot lowers to gemm in many kernels).
+        m = width
+        nn = width
+        if isinstance(shape, (list, tuple)) and len(shape) >= 2:
+            if isinstance(shape[0], int) and shape[0] > 0:
+                m = float(shape[0])
+            if isinstance(shape[1], int) and shape[1] > 0:
+                nn = float(shape[1])
+        k = width
+        ops = 2.0 * m * k * nn
+        local = (m * k + k * nn + m * nn) * bytes_per_elem
+        hbm_read = (m * k + k * nn) * bytes_per_elem
+        hbm_write = m * nn * bytes_per_elem
     elif name == "gemm":
         m = width
         nn = width

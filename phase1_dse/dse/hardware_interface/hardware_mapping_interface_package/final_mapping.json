@@ -1,7 +1,7 @@
 {
   "version": 3,
   "model": "realization_first",
-  "description": "Each TAIDL/XLA primitive maps to one or more realizations. Each realization maps to an ordered IP flow and a cost tag. Fused patterns override individual per-op mappings.",
+  "description": "Each TAIDL/XLA primitive maps to one or more realizations. Each realization maps to an ordered IP flow, an optional compound action model, and a cost tag. Fused patterns override individual per-op mappings.",
   "pipeline_stages": [
     "1. Semantics: TAIDL/XLA meaning",
     "2. Primitive decomposition",
@@ -9,7 +9,8 @@
     "4. Fusion check (fused_patterns, highest priority first)",
     "5. Per-op realization selection (default unless condition selects alternative)",
     "6. IP flow assignment",
-    "7. Cost aggregation via cost_tag"
+    "7. Optional compound action expansion for hardware-specific tiled schedules",
+    "8. Cost aggregation via cost_tag and action/event coefficients"
   ],
   "primitives": {
     "dot": {
@@ -126,6 +127,157 @@
           ],
           "cost_tag": "tensor_compute_tiled",
           "cost_formula_hint": "tile_passes * per_tile_cost + dma_overhead",
+          "compound_action_model": {
+            "model": "gemmini_loop_ws_tiled_v3",
+            "description": "Expand one symbolic GEMM/MAC op into Gemmini tiled CISC-style actions before energy aggregation.",
+            "tile_dim": 8,
+            "actions": [
+              {
+                "name": "mvin_spad_tile",
+                "count_event": "dma_read_commands",
+                "blocks": [
+                  "load_controller",
+                  "dma_engine",
+                  "spad_write_port"
+                ]
+              },
+              {
+                "name": "compute_tile",
+                "count_event": "compute_commands",
+                "blocks": [
+                  "command_queue",
+                  "execute_controller",
+                  "spad_read_port",
+                  "systolic_mesh",
+                  "accumulator"
+                ]
+              },
+              {
+                "name": "mvout_tile",
+                "count_event": "dma_write_commands",
+                "blocks": [
+                  "store_controller",
+                  "acc_read_port",
+                  "dma_engine"
+                ]
+              },
+              {
+                "name": "config",
+                "count_event": "config_commands",
+                "blocks": [
+                  "command_queue",
+                  "control_registers"
+                ]
+              },
+              {
+                "name": "flush",
+                "count_event": "flush_commands",
+                "blocks": [
+                  "command_queue",
+                  "tlb_ptw_control"
+                ]
+              }
+            ],
+            "first_class_actions": [
+              {
+                "name": "mesh_compute_tile",
+                "count_event": "mesh_tile_passes",
+                "energy_bucket": "MAC Array",
+                "coefficient": "mesh_compute_pj_per_tile",
+                "status": "modeled_from_isolated_mesh_ip_slope",
+                "notes": "Useful 8x8 systolic compute tile pass. This is semantic MAC work, not the full PrimeTime mesh hierarchy."
+              },
+              {
+                "name": "spad_dma_write_byte",
+                "count_event": "spad_dma_write_bytes",
+                "energy_bucket": "SPAD/Memory",
+                "coefficient": "spad_write_pj_per_byte",
+                "status": "modeled_by_spad_byte_proxy_until_spad_ip_calibration",
+                "notes": "mvin endpoint writes into SPAD banks. External DRAM/HBM array energy is excluded separately."
+              },
+              {
+                "name": "spad_operand_read_byte",
+                "count_event": "spad_operand_read_bytes",
+                "energy_bucket": "SPAD/Memory",
+                "coefficient": "spad_read_pj_per_byte",
+                "status": "modeled_by_spad_byte_proxy_until_spad_ip_calibration",
+                "notes": "SPAD operand reads feeding the mesh."
+              },
+              {
+                "name": "spad_preload_read_byte",
+                "count_event": "spad_preload_read_bytes",
+                "energy_bucket": "SPAD/Memory",
+                "coefficient": "spad_read_pj_per_byte",
+                "status": "modeled_by_spad_byte_proxy_until_spad_ip_calibration",
+                "notes": "SPAD reads used by preload/MAC schedules."
+              },
+              {
+                "name": "acc_init_write_chunk",
+                "count_event": "acc_init_write_bytes",
+                "normalize_by": "acc_tile_bytes",
+                "energy_bucket": "ACC",
+                "coefficient": "acc_write_pj_per_32B_chunk",
+                "status": "modeled_from_isolated_acc_ip_slope_plus_active_envelope",
+                "notes": "First K-pass writes into accumulator."
+              },
+              {
+                "name": "acc_rmw_chunk",
+                "count_event": "acc_rmw_tiles",
+                "energy_bucket": "ACC",
+                "coefficient": "acc_rmw_pj_per_32B_chunk",
+                "status": "modeled_from_isolated_acc_ip_slope_plus_active_envelope",
+                "notes": "Accumulator read-modify-write for partial-sum accumulation."
+              },
+              {
+                "name": "acc_final_read_chunk",
+                "count_event": "acc_final_read_bytes",
+                "normalize_by": "acc_tile_bytes",
+                "energy_bucket": "ACC",
+                "coefficient": "acc_read_pj_per_32B_chunk",
+                "status": "modeled_from_isolated_acc_ip_slope_plus_active_envelope",
+                "notes": "Final accumulator read for mvout/store."
+              },
+              {
+                "name": "dma_command",
+                "count_event": "dma_read_commands + dma_write_commands + preload_commands",
+                "energy_bucket": "Control/Other",
+                "coefficient": "dma_command_pj",
+                "status": "hook_present_coefficient_zero_until_measured",
+                "notes": "Load/store/preload controller command overhead. Current presentation graph models command/control energy with a separate linear command-count term."
+              },
+              {
+                "name": "config_command",
+                "count_event": "config_commands",
+                "energy_bucket": "Control/Other",
+                "coefficient": "config_command_pj",
+                "status": "hook_present_coefficient_zero_until_measured",
+                "notes": "Gemmini config command/control-register activity."
+              },
+              {
+                "name": "flush_command",
+                "count_event": "flush_commands",
+                "energy_bucket": "Control/Other",
+                "coefficient": "flush_command_pj",
+                "status": "hook_present_coefficient_zero_until_measured",
+                "notes": "Flush/TLB-control command activity."
+              }
+            ],
+            "active_overhead_hooks": [
+              {
+                "name": "spad_active_cycle",
+                "energy_bucket": "SPAD/Memory",
+                "status": "not_charged_until_spad_calibration",
+                "notes": "Needed to match PrimeTime SPAD active-window/control/clocked dynamic, especially for ADD."
+              },
+              {
+                "name": "mesh_control_or_idle_cycle",
+                "energy_bucket": "Mesh Other",
+                "status": "not_charged_until_mesh_control_calibration",
+                "notes": "Needed because PrimeTime mesh hierarchy burns dynamic energy even when no useful MAC commands are issued."
+              }
+            ],
+            "event_notes": "For 64x64 on DIM=8, GEMM has 512 compute tile passes. The current v3 PT probe reloads operand tiles for every compute pass and writes 64 final output tiles."
+          },
           "gemmini_rationale": "gemmini_loop_ws: FSM handles double-buffered tiling automatically."
         }
       ]
@@ -174,6 +326,111 @@
           ],
           "cost_tag": "onchip_compute",
           "cost_formula_hint": "elements * acc_op_latency",
+          "compound_action_model": {
+            "model": "gemmini_acc_accumulate_v3",
+            "description": "Expand elementwise ADD implemented through Gemmini accumulator read-modify-write behavior.",
+            "tile_dim": 8,
+            "actions": [
+              {
+                "name": "acc_rmw_tile",
+                "count_event": "acc_rmw_tiles",
+                "blocks": [
+                  "acc_read_port",
+                  "acc_adder",
+                  "acc_write_port"
+                ]
+              },
+              {
+                "name": "spad_operand_read_tile",
+                "count_event": "spad_operand_tile_reads",
+                "blocks": [
+                  "spad_read_port"
+                ]
+              },
+              {
+                "name": "execute_control",
+                "count_event": "compute_commands",
+                "blocks": [
+                  "command_queue",
+                  "execute_controller"
+                ]
+              }
+            ],
+            "first_class_actions": [
+              {
+                "name": "acc_rmw_chunk",
+                "count_event": "acc_rmw_tiles",
+                "energy_bucket": "ACC",
+                "coefficient": "acc_rmw_pj_per_32B_chunk",
+                "status": "modeled_from_isolated_acc_ip_slope_plus_active_envelope",
+                "notes": "Elementwise ADD path implemented as accumulator read-modify-write."
+              },
+              {
+                "name": "spad_operand_read_byte",
+                "count_event": "spad_operand_read_bytes",
+                "energy_bucket": "SPAD/Memory",
+                "coefficient": "spad_read_pj_per_byte",
+                "status": "modeled_by_spad_byte_proxy_until_spad_ip_calibration",
+                "notes": "SPAD operand reads feeding ACC accumulation semantics."
+              },
+              {
+                "name": "acc_dma_read_chunk",
+                "count_event": "acc_dma_read_bytes",
+                "normalize_by": "acc_tile_bytes",
+                "energy_bucket": "ACC",
+                "coefficient": "acc_read_pj_per_32B_chunk",
+                "status": "modeled_from_isolated_acc_ip_slope_plus_active_envelope",
+                "notes": "Accumulator read endpoint for store/mvout traffic."
+              },
+              {
+                "name": "acc_dma_write_chunk",
+                "count_event": "acc_dma_write_bytes",
+                "normalize_by": "acc_tile_bytes",
+                "energy_bucket": "ACC",
+                "coefficient": "acc_write_pj_per_32B_chunk",
+                "status": "modeled_from_isolated_acc_ip_slope_plus_active_envelope",
+                "notes": "Accumulator write endpoint for mvin/load traffic."
+              },
+              {
+                "name": "execute_command",
+                "count_event": "compute_commands",
+                "energy_bucket": "Control/Other",
+                "coefficient": "execute_command_pj",
+                "status": "hook_present_coefficient_zero_until_measured",
+                "notes": "Execute-controller and command-queue activity for accumulator ADD."
+              },
+              {
+                "name": "config_command",
+                "count_event": "config_commands",
+                "energy_bucket": "Control/Other",
+                "coefficient": "config_command_pj",
+                "status": "hook_present_coefficient_zero_until_measured",
+                "notes": "Configuration traffic needed by the ADD command stream."
+              },
+              {
+                "name": "flush_command",
+                "count_event": "flush_commands",
+                "energy_bucket": "Control/Other",
+                "coefficient": "flush_command_pj",
+                "status": "hook_present_coefficient_zero_until_measured",
+                "notes": "Flush/TLB-control command activity."
+              }
+            ],
+            "active_overhead_hooks": [
+              {
+                "name": "spad_active_cycle",
+                "energy_bucket": "SPAD/Memory",
+                "status": "not_charged_until_spad_calibration",
+                "notes": "ADD exposes why this is needed: byte movement is small, but PrimeTime SPAD hierarchy still has active/control dynamic."
+              },
+              {
+                "name": "acc_active_cycle",
+                "energy_bucket": "ACC",
+                "status": "charged_by_current_acc_active_envelope",
+                "notes": "Current ACT ACC uses the isolated ACC idle-envelope per active cycle plus data-toggle slopes."
+              }
+            ]
+          },
           "gemmini_rationale": "ACC write with accumulate bit set (bit 30 of acc address). Uses acc adder units."
         },
         {
@@ -906,6 +1163,66 @@
           ],
           "cost_tag": "offchip_movement",
           "cost_formula_hint": "bytes / dram_bw",
+          "compound_action_model": {
+            "model": "gemmini_dma_tile_v3",
+            "description": "Expand load/store/mvin/mvout copies into DMA plus SPAD/ACC endpoint actions.",
+            "tile_dim": 8,
+            "actions": [
+              {
+                "name": "mvin_or_mvout_tile",
+                "count_event": "dma_read_commands_or_dma_write_commands",
+                "blocks": [
+                  "dma_engine",
+                  "load_or_store_controller",
+                  "spad_or_acc_endpoint"
+                ]
+              }
+            ],
+            "first_class_actions": [
+              {
+                "name": "spad_dma_write_byte",
+                "count_event": "spad_dma_write_bytes",
+                "energy_bucket": "SPAD/Memory",
+                "coefficient": "spad_write_pj_per_byte",
+                "status": "modeled_by_spad_byte_proxy_until_spad_ip_calibration",
+                "notes": "Endpoint write into SPAD for mvin/load."
+              },
+              {
+                "name": "spad_dma_read_byte",
+                "count_event": "spad_dma_read_bytes",
+                "energy_bucket": "SPAD/Memory",
+                "coefficient": "spad_read_pj_per_byte",
+                "status": "modeled_by_spad_byte_proxy_until_spad_ip_calibration",
+                "notes": "Endpoint read from SPAD for mvout/store."
+              },
+              {
+                "name": "acc_dma_write_chunk",
+                "count_event": "acc_dma_write_bytes",
+                "normalize_by": "acc_tile_bytes",
+                "energy_bucket": "ACC",
+                "coefficient": "acc_write_pj_per_32B_chunk",
+                "status": "modeled_from_isolated_acc_ip_slope_plus_active_envelope",
+                "notes": "Endpoint write into ACC for mvin/load."
+              },
+              {
+                "name": "acc_dma_read_chunk",
+                "count_event": "acc_dma_read_bytes",
+                "normalize_by": "acc_tile_bytes",
+                "energy_bucket": "ACC",
+                "coefficient": "acc_read_pj_per_32B_chunk",
+                "status": "modeled_from_isolated_acc_ip_slope_plus_active_envelope",
+                "notes": "Endpoint read from ACC for mvout/store."
+              },
+              {
+                "name": "dma_command",
+                "count_event": "dma_read_commands + dma_write_commands",
+                "energy_bucket": "Control/Other",
+                "coefficient": "dma_command_pj",
+                "status": "hook_present_coefficient_zero_until_measured",
+                "notes": "Load/store controller command overhead. External memory array energy remains excluded."
+              }
+            ]
+          },
           "gemmini_rationale": "mvin / mvout via LoadController / StoreController."
         },
         {
@@ -1016,7 +1333,7 @@
           ],
           "cost_tag": "host_fallback",
           "cost_formula_hint": "elements * rocket_per_elem_cycles",
-          "gemmini_rationale": "No gather/scatter on baseline Gemmini; Rocket scalar loops."
+          "gemmini_rationale": "No gather/scatter on standard Gemmini; Rocket scalar loops."
         }
       ]
     },

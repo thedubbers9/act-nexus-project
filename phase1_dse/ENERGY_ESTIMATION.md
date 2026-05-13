@@ -1,216 +1,265 @@
-# Energy estimation + ACT compile runbook
+# ACT Energy Estimation
 
-This fork’s workflow has two layers:
+This document explains the current energy-estimation flow used by this fork.
+It focuses only on the active `.pii` energy path and the Gemmini action-count
+model used for the presentation graphs.
 
-1. **ACT compiler backends** (Rust + OR-Tools): compile `.hlo` → generated Python kernel + **PII** logs (candidate programs).
-2. **Static energy on `.pii`** (Python `dse` package): cost model + `primitive_hw_config.json` → **pJ** (+ optional plots).
+Read with:
 
-Use the **MICRO’25 tutorial container** for (1) on cluster machines where the checked-in `backends/`* binaries match the image (glibc, OR-Tools). Use **host Python** for (2) when you only need energy on saved `.pii` files.
-
-For the **hardware-mapping interface** package, `generate_final_mapping.py`, and how **`dse.energy_workload`** fits together with **`primitive_hw_config.json`** (ACT as a black box), see **`HARDWARE_INTERFACE_ENERGY.md`** in this folder.
-
----
-
-## A. One-time: Podman storage + pull tutorial image
-
-From the **MLIR-hardware-analysis repo root** (where `setup_act_docker.sh` lives):
-
-```bash
-bash ./setup_act_docker.sh
-```
-
-That writes `~/.config/containers/storage.conf` (graph under `<repo>/.act-podman/`), runs `podman system migrate`, then `submodule/act/tutorials/micro25/docker.sh --setup`.
-
-### Registry menu (“Please select an image”)
-
-If Podman asks you to pick a registry, choose the line that starts with `**docker.io/devanshdvj/act-tutorials**` (often the **last** option). Do **not** use `registry.access.redhat.com` or `registry.redhat.io` for this public image.
-
-If pulls still fail with `/etc/gshadow` / subuid errors, ask admins for `**/etc/subuid` + `/etc/subgid`**, or run on a laptop with Docker Desktop.
+- `README.md` for the high-level entry point.
+- `HARDWARE_INTERFACE_ENERGY.md` for the primitive-to-realization mapping.
 
 ---
 
-## B. Start the ACT tutorial shell (compile-capable image)
+## 1) What Goes In and What Comes Out
 
-```bash
-cd submodule/act/tutorials/micro25
-./docker.sh --compile
+Input:
+
+```text
+ACT candidate .pii files
 ```
 
-Inside the container you should see something like `(act) root@…:/workspace#`. Here `**/workspace**` is the `**submodule/act**` tree mounted read/write.
+Output:
 
-```bash
-conda activate act   # if needed
-cd /workspace
+```text
+energy_summary.json
+candidate_energy.csv
+energy_detail_*.json
+optional plots/
 ```
+
+The estimator does not rerun physical design and does not rerun PrimeTime. It
+reads saved ACT candidate programs and estimates energy from the operations and
+hardware actions implied by those programs.
 
 ---
 
-## C. Which ISAs / backends exist (this repo)
+## 2) Main Command
 
-Prebuilt binaries live in `**/workspace/backends/**` (host: `submodule/act/backends/`). TAIDL sources are under `**isa_examples/**`; generated Rust/C++ lives under `**targets/<ISA>/backend/**`.
-
-
-| Backend binary    | TAIDL spec                    | `targets/…`                   | What it is                                                                                                                                                             |
-| ----------------- | ----------------------------- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `**GEMMINI_17**`  | `isa_examples/GEMMINI_17.py`  | `targets/GEMMINI_17/backend`  | Gemmini-style **16-instruction** ISA: scratchpad/accumulator, **mvin/mvout**, mesh **GEMM**, norms, etc. Good default for **matmul** and many **Gemmini-shaped** HLOs. |
-| `**ATTN_TILE64`** | `isa_examples/ATTN_TILE64.py` | `targets/ATTN_TILE64/backend` | **64×64 attention tile**: scratchpad + matmul + **softmax** unit; HLO subset aimed at **scaled dot-product attention core** (Q, K, V → O).                             |
-| `**QKV_DSE`**     | `isa_examples/QKV_DSE.py`     | `targets/QKV_DSE/backend`     | **QKV variant for DSE**: larger on-chip buffers (`d1`/`d2` **4096×64**), separate backend name from tutorial `**QKV`** so benchmarks do not collide.                   |
-
-
-**Not a separate binary here:** tutorial `**QKV`** (`isa_examples/QKV.py`) — generate with `python QKV.py` per MICRO exercise if you need `backends/QKV`.
-
-**Regenerate primitive / ISA cost JSON** (host or container, from `act/` root):
-
-```bash
-bash scripts/bash/run_isa_primitives.sh --isa-name GEMMINI_17
-bash scripts/bash/run_isa_primitives.sh --isa-name ATTN_TILE64
-bash scripts/bash/run_isa_primitives.sh --isa-name QKV_DSE
-```
-
-For calibration-style HW JSON, point `HW_RESOURCE_CONFIG` at `phase1_dse/dse/config/primitive_hw_config_micro.json` (see `ACT_CALIBRATION_FORK_NOTES.md`).
-
----
-
-## D. Compile an HLO with a backend (ACT)
-
-Pattern (inside `**/workspace**`):
-
-```bash
-mkdir -p asm/my_run log/my_run
-./backends/<ISA_NAME> \
-  --input workloads/<file>.hlo \
-  --output asm/my_run/kernel.py \
-  --log log/my_run
-```
-
-**Example (Gemmini, smallest workload):**
-
-```bash
-mkdir -p asm/demo_matmul log/demo_matmul
-./backends/GEMMINI_17 \
-  --input workloads/matmul_64x64.hlo \
-  --output asm/demo_matmul/matmul_64x64.py \
-  --log log/demo_matmul/run
-```
-
-**Example (attention tile, ATTN backend):**
-
-```bash
-mkdir -p asm/demo_attn log/demo_attn
-./backends/ATTN_TILE64 \
-  --input workloads/attention_64x64.hlo \
-  --output asm/demo_attn/out.py \
-  --log log/demo_attn/run
-```
-
-### Where outputs go
-
-
-| Artifact                     | Location                                                                                                                                                                                      |
-| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Chosen kernel (Python)**   | Path you passed to `--output` (e.g. `asm/.../kernel.py`).                                                                                                                                     |
-| **Compile log + candidates** | `--log` directory: for each candidate index `**N`**, you get `**N.py`** (ASM candidate) and `**N.pii**` (pre-schedule program text). The backend copies the **best** candidate to `--output`. |
-| **Metadata**                 | Often `metadata.json` under the log dir (depends on backend).                                                                                                                                 |
-
-
----
-
-## E. Workloads (`workloads/*.hlo`) — full list
-
-All paths relative to `**act/`** root (`/workspace` in container).
-
-
-| File                                        | Summary                                                              |
-| ------------------------------------------- | -------------------------------------------------------------------- |
-| `matmul_64x64.hlo`                          | Single **64×64 bf16 matmul** (smallest smoke test).                  |
-| `attention_64x64.hlo`                       | **64×64** scaled dot-product style attention (Q,K,V → O).            |
-| `gemmini_anchor_attention_tile64.hlo`       | Attention tile variant aligned with Gemmini anchor experiments.      |
-| `attention_tile64_long_manual.hlo`          | **Longer** manual attention-tile graph (more parameters / ops).      |
-| `llm_compute_bound.hlo`                     | **Compute-heavy** wide sequence (`bf16[2048,64]` stream) + tile ops. |
-| `llm_mem_bound.hlo`                         | **Memory-heavy** residual-style ops at long sequence length.         |
-| `llm_mem_bound_kv_merge_large_workable.hlo` | **KV-merge / memory** style large tensors, workable for compile.     |
-| `llm_mixed_attention_large_workable.hlo`    | **Mixed** attention + large sequence block.                          |
-| `llm_layer_kernel_tile64_anchor.hlo`        | **Layer-style** kernel with multiple **64×64** tiles.                |
-| `transformer_block64_medium_manual.hlo`     | **Manual** medium transformer-style block at 64-wide tiles.          |
-| `transformer_block64_rich_manual.hlo`       | **Richer** manual transformer block (more tensors).                  |
-
-
-Pick the backend (**GEMMINI_17** vs **ATTN_TILE64** vs **QKV_DSE**) to match the **HLO ops** your file uses; if compilation errors with “no rewrite”, try the other ISA or simplify the HLO.
-
----
-
-## F. Static energy (pJ) on `.pii` — `dse.energy_workload`
-
-From `**act/`** root on **any** machine with Python deps:
+Run from the ACT repo root:
 
 ```bash
 export PYTHONPATH=".:phase1_dse"
 python3 -m dse.energy_workload \
-  --input log/demo_matmul/run/0.pii \
-  --hw_config phase1_dse/dse/config/primitive_hw_config.json \
-  --out demo_output/energy_run \
+  --input log/demo_matmul/run \
+  --hw_config phase1_dse/dse/config/primitive_hw_config_micro.json \
+  --mapping_json phase1_dse/dse/hardware_interface/hardware_mapping_interface_package/final_mapping.json \
+  --out demo_output/energy_matmul_all \
   --plot
 ```
 
-- `**--input**`: one `.pii` file or a directory of candidates.
-- `**--hw_config**`: `primitive_hw_config.json` (abstraction-class energies).
-- `**--mapping_json**`: optional `phase1_dse/dse/hardware_interface/hardware_mapping_interface_package/final_mapping.json` (defaulted inside code if present).
-- `**--plot**`: writes `demo_output/energy_run/plots/energy_by_class_<stem>.png`.
-- **JSON/CSV**: `energy_summary.json`, `candidate_energy.csv`, `energy_detail_*.json` under `--out`.
+`--input` can be one `.pii` file or a directory of candidate `.pii` files.
 
 ---
 
-## G. ISA energy plots (instruction breakdown) — `plot_isa_workload_costs.py`
+## 3) Source Files
 
-Runs from `**act/`** root; uses the backend’s `**python/cost/model.py`**.
+| File | What it does |
+| --- | --- |
+| `dse/src/parse_pii.py` | Parses ACT `.pii` text into `CandidateProgram` and `InstructionCall` objects. |
+| `dse/src/energy_workload.py` | CLI wrapper. Loads candidates, calls the estimator, writes JSON/CSV/plots. |
+| `dse/src/energy_estimate.py` | Main estimator. Selects realizations, expands Gemmini actions, and sums energy. |
+| `dse/src/features.py` | Helper for shape, width, op-count, and byte-count terms used by `energy_estimate.py`. |
+| `dse/config/primitive_hw_config_micro.json` | Current Gemmini coefficients and schedule-event model settings. |
+| `dse/hardware_interface/hardware_mapping_interface_package/final_mapping.json` | Runtime primitive-to-realization mapping. |
 
-**Workload view** (one compiled `.py` per row, e.g. single output kernel):
+Supporting scripts:
 
-```bash
-python3 plot_isa_workload_costs.py \
-  --backend-dir targets/GEMMINI_17/backend \
-  --compiled-dir asm/demo_matmul \
-  --out-dir demo_output/isa_plots_workload
-```
-
-**Candidate view** (every `N.py` under a compile log dir):
-
-```bash
-python3 plot_isa_workload_costs.py \
-  --backend-dir targets/GEMMINI_17/backend \
-  --candidate-dir log/demo_matmul/run \
-  --out-dir demo_output/isa_plots_candidates
-```
-
-**Both** in one output directory:
-
-```bash
-python3 plot_isa_workload_costs.py \
-  --backend-dir targets/ATTN_TILE64/backend \
-  --compiled-dir asm/demo_attn \
-  --candidate-dir log/demo_attn/run \
-  --out-dir demo_output/isa_plots_attn
-```
-
-Outputs typically include:
-
-- `*_total_isa_energy.png`, `*_instruction_energy_breakdown.png`, zoom / delta charts  
-- `*_cost_summary.csv` / `.json`
+| File | Role |
+| --- | --- |
+| `estimate_primitive_resources.py` | Produces primitive-resource summaries from primitive JSON descriptions. |
+| `plot_isa_workload_costs.py` | Plots backend ISA instruction-cost breakdowns. |
+| `scripts/make_candidate_energy_profiles_gemm64.py` | Builds candidate energy profile plots for GEMM64 candidates. |
 
 ---
 
-## Quick reference paths (host, from MLIR repo)
+## 4) Code Path
 
+`energy_workload.py` is the entry point:
 
-| What                 | Path                                                             |
-| -------------------- | ---------------------------------------------------------------- |
-| Setup script         | `MLIR-hardware-analysis/setup_act_docker.sh`                     |
-| ACT root             | `MLIR-hardware-analysis/submodule/act/`                          |
-| Tutorial             | `…/submodule/act/tutorials/micro25/docker.sh`                    |
-| Backends             | `…/submodule/act/backends/{GEMMINI_17,ATTN_TILE64,QKV_DSE}`      |
-| Workloads            | `…/submodule/act/workloads/*.hlo`                                |
-| DSE / energy package | `…/submodule/act/phase1_dse/dse/`                                |
-| HW JSON (default)    | `…/submodule/act/phase1_dse/dse/config/primitive_hw_config.json` |
-| Plot script          | `…/submodule/act/plot_isa_workload_costs.py`                     |
+```text
+energy_workload.py
+  -> parse_pii_dir(...)
+      -> parse_pii.py
+  -> estimate_program(...)
+      -> energy_estimate.py
+          -> _normalize_primitive_name(...)
+          -> _resolve_mapping(...)
+          -> _gemmini_schedule_events_for_instruction(...)
+          -> _add_gemmini_schedule_event_memory(...)
+          -> _add_gemmini_accumulator_events(...)
+  -> write energy_summary.json
+  -> write candidate_energy.csv
+  -> write energy_detail_*.json
+```
 
+Step by step:
 
+1. `parse_pii.py` reads every `.pii` line and records the op name, shape, dtype,
+   buffer, offset, children, and source line number.
+2. `energy_estimate.py` normalizes op names into semantic primitives. For
+   example, `gemm`, `gemm_acc`, `matmul8`, and `dot` map to primitive `dot`.
+3. The estimator reads `final_mapping.json` and selects a Gemmini realization
+   for the primitive.
+4. For Gemmini tiled workloads, the realization expands into hardware schedule
+   events such as mesh tile passes, SPAD bytes, ACC chunks, config commands,
+   flush commands, and DMA-style movement.
+5. The estimator reads coefficients from `primitive_hw_config_micro.json`.
+6. Each energy term is added into `by_cost_tag_pj`, `by_realization_pj`, and the
+   per-instruction detail JSON.
+
+---
+
+## 5) Current Energy Buckets
+
+The current Gemmini model is an action-count model:
+
+```text
+E_ACT =
+  mesh_passes      * E_mesh_pass
++ spad_bytes       * E_spad_byte
++ acc_read_chunks  * E_acc_read_chunk
++ acc_write_chunks * E_acc_write_chunk
++ acc_rmw_chunks   * E_acc_rmw_chunk
++ command_counts   * E_command
+```
+
+Current buckets:
+
+| Bucket | How ACT estimates it |
+| --- | --- |
+| MAC Array | Count 8x8 mesh passes and multiply by the mesh tile coefficient. |
+| SPAD / on-chip movement | Count local/SPAD bytes and multiply by the SPAD byte proxy. |
+| ACC | Count ACC read/write/RMW 32B chunks, then charge isolated ACC data-slope energy plus the enabled ACC active-envelope term. |
+| Control / command activity | Optional linear command-count model used by the latest presentation graph. |
+| Off-chip memory | Excluded for PrimeTime comparison because full-chip PrimeTime does not model external DRAM/HBM. |
+
+The current SPAD byte proxy is `19 pJ/byte`. This is a proxy for on-chip SRAM
+movement, not a full SPAD hierarchy model. The remaining full-chip gap is mostly
+SPAD active-window/control overhead, ACC active hierarchy overhead, execute
+controller activity, command queues, and DMA/load-store controller activity.
+
+---
+
+## 6) ACC Modeling Note
+
+The ACC model has two possible interpretations:
+
+| Term | Meaning |
+| --- | --- |
+| ACC data slope | Idle-subtracted read/write/RMW energy per 32B chunk from the isolated ACC IP sweep. |
+| ACC clocked envelope | Clocked active-window energy for the ACC hierarchy while the IP is active. |
+
+For a clean action-count-only ACT model, the data slope is the safest term
+because it is comparable to the mesh action slope. For the latest
+presentation-facing PT-vs-ACT graph, we intentionally include the ACC active
+envelope as well, because the PrimeTime ACC bucket includes clocked ACC
+hierarchy activity. This is why the plotted ACT ACC bucket is much larger than
+the idle-subtracted data slope alone.
+
+The coefficient values are read from:
+
+```text
+dse/config/primitive_hw_config_micro.json
+```
+
+Look under:
+
+```text
+gemmini_accumulator_event_model.energy_pj_per_tile
+gemmini_accumulator_event_model.active_envelope
+```
+
+---
+
+## 7) Worked Example: GEMM 64x64
+
+Semantic workload:
+
+```text
+D = A * B
+```
+
+Primitive and realization:
+
+```text
+gemm -> dot -> loop_ws_tiled
+```
+
+Why `loop_ws_tiled`?
+
+```text
+64x64 GEMM is larger than the physical 8x8 Gemmini array.
+```
+
+Tile math:
+
+```text
+M tiles = 64 / 8 = 8
+N tiles = 64 / 8 = 8
+K tiles = 64 / 8 = 8
+
+output tiles     = 8 * 8     = 64
+mesh tile passes = 8 * 8 * 8 = 512
+```
+
+Main action counts:
+
+| Action | Count | Meaning |
+| --- | ---: | --- |
+| compute | 512 | One 8x8 mesh pass per output tile per K tile. |
+| mvin | 1024 | Load A and B tiles for each compute pass. |
+| mvout | 64 | Write each final output tile once. |
+| config | 1536 | Three config commands per compute pass in the current probe. |
+| flush | 513 | One flush per compute pass plus final drain. |
+
+Mesh energy example:
+
+```text
+E_mesh = 512 * E_mesh_pass
+       = 512 * 2601.7 pJ
+       = 1.332 uJ
+```
+
+The full ACT estimate then adds SPAD bytes, ACC chunk events, and command/control
+terms from the same schedule.
+
+---
+
+## 8) Worked Example: MAC 64x64
+
+Semantic workload:
+
+```text
+D = A * B + C
+```
+
+Primitive and realization:
+
+```text
+gemm_acc -> dot -> loop_ws_tiled
+```
+
+MAC has the same 512 mesh compute passes as GEMM, but it carries extra C/preload
+traffic and more ACC read-modify-write behavior. That is why MAC has similar MAC
+array energy but higher SPAD/ACC/control energy than GEMM.
+
+---
+
+## 9) Candidate Energy Ranking
+
+For candidate plots, ACT repeats the same process for every candidate `.pii`
+file in a log directory:
+
+```text
+candidate_0.pii -> total energy
+candidate_1.pii -> total energy
+candidate_2.pii -> total energy
+...
+```
+
+The compiler can then choose the lowest-energy candidate, or the analysis script
+can plot unique candidate energy profiles for presentation.
+
+This is the important compiler-facing point: the energy model is not just a
+post-processing graph. It can act as a cost function for candidate selection.

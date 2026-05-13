@@ -1,0 +1,13 @@
+{
+  "design": "Gemmini",
+  "flow_build": "gemmini_chipyard_locked_bf16_matmul",
+  "source_mflowgen_build": "/scratch/krish/better-mflowgen-template-repo/better-mflowgen/mflowgen/builds/gemmini_chipyard_locked_bf16_matmul",
+  "pt_tool": "PrimeTime averaged power (V-2023.12-SP5-1)",
+  "pt_report_date_from_file": "2026-04-20",
+  "averaged_power_units": "W",
+  "total_power_W": 0.305756509,
+  "cell_internal_power_W": 0.156016678,
+  "net_switching_power_W": 0.149733499,
+  "cell_leakage_power_W": 6.33337186e-06,
+  "notes": "Gate-level SAIF from VCS (GemminiActiveMatmulTb); strip_path matches TB/dut_inst. TB uses TileLink scratchpad BFM only (not DRAM)."
+}

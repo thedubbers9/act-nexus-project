@@ -25,9 +25,9 @@
       "clock_mhz": 640.0,
       "effective_ops_per_cycle": 128,
       "energy_per_op_pj": 0.149125,
-      "energy_per_byte_pj": 0.015,
+      "energy_per_byte_pj": 6.85,
       "throughput_ops_per_cycle": 128,
-      "calibration_target": "Path C scoped PT on full-chip locked Gemmini (200us, SAIF_CAPTURE_CYCLES=20000): ex_controller scoped total power ~=66.5mW for both matmul and attn_proxy. Kept energy_per_op_pj unchanged pending event-count normalization."
+      "calibration_target": "Operand/scratchpad byte energy aligned to sram_energy_per_byte_pj for matmul dot/gemm proxy."
     },
     "tensor_compute_tiled": {
       "resource_class": "matrix_engine",
@@ -38,9 +38,9 @@
       "clock_mhz": 640.0,
       "effective_ops_per_cycle": 128,
       "energy_per_op_pj": 0.149125,
-      "energy_per_byte_pj": 0.015,
+      "energy_per_byte_pj": 6.85,
       "throughput_ops_per_cycle": 128,
-      "calibration_target": "Path C scoped PT on full-chip locked Gemmini (200us, SAIF_CAPTURE_CYCLES=20000): ex_controller scoped total power ~=66.5mW for both matmul and attn_proxy. Kept energy_per_op_pj unchanged pending event-count normalization."
+      "calibration_target": "Operand/scratchpad byte energy aligned to sram_energy_per_byte_pj for matmul dot/gemm proxy."
     },
     "zero_cost": {
       "resource_class": "non_materialized_layout",
@@ -118,9 +118,9 @@
       "unit_count": 2,
       "area_per_unit_mm2": 0.043439787,
       "energy_per_op_pj": 0.0,
-      "energy_per_byte_pj": 0.43659033359375,
+      "energy_per_byte_pj": 6.85,
       "bandwidth_bytes_per_cycle": 128,
-      "calibration_target": "axi_dma scaled 4x down (128 B/cycle from 512)"
+      "calibration_target": "Preliminary matmul: SRAM scratchpad movement 6.85 pJ/B (see memory_energy_pj_per_byte)."
     },
     "offchip_movement": {
       "resource_class": "scratchpad_dma",
@@ -128,9 +128,9 @@
       "unit_count": 2,
       "area_per_unit_mm2": 0.043439787,
       "energy_per_op_pj": 0.0,
-      "energy_per_byte_pj": 0.43659033359375,
+      "energy_per_byte_pj": 60.0,
       "bandwidth_bytes_per_cycle": 128,
-      "calibration_target": "axi_dma scaled 4x down (128 B/cycle from 512)"
+      "calibration_target": "Preliminary matmul: VRAM/HBM-style byte energy 60 pJ/B (see memory_energy_pj_per_byte)."
     },
     "uncategorized": {
       "resource_class": "unmapped_engine",
@@ -145,5 +145,80 @@
     "cost_model_schema": "realization_first_v1",
     "replaced_section": "abstraction_classes",
     "details": "Migrated from abstraction_classes to cost_tags for realization-first estimator. Legacy abstraction-class configs are still accepted by estimator compatibility logic."
+  },
+  "gemmini_schedule_event_model": {
+    "enabled": true,
+    "tile_dim": 8,
+    "acc_bytes_per_elem": 4,
+    "charge_onchip_memory_movement": true,
+    "onchip_memory_cost_tag": "onchip_movement",
+    "sram_energy_per_byte_pj": 6.85,
+    "notes": "V0 Gemmini schedule expansion: charge explicit SPAD/ACC/on-chip movement event bytes as onchip_movement at 6.85 pJ/byte. External offchip_read/write_bytes are intentionally excluded because full-chip PrimeTime does not model external DRAM/HBM energy."
+  },
+  "gemmini_locked_bf16_isolated_ip_calibration": {
+    "model_form": "dynamic_energy_uj = coef_uj_per_tile * workload_tiles_N + intercept_uj",
+    "workload_tiles_N": "Same as isolated-IP TB WORKLOAD_TILES (1, 16, 256).",
+    "source": "postprocess_and_fit.py on better-mflowgen mflowgen/builds/*_tiles_*",
+    "generated_config_dir": "phase1_dse/dse/config/gemmini_isolated_ip_calibration",
+    "fits": {
+      "activation_compute": {
+        "coef_uj_per_tile": 0.000142961579373978,
+        "intercept_uj": 6.0397055328002824e-05,
+        "rmse_uj": 2.0165087141078706e-05,
+        "r2": 0.9999985424339402,
+        "fit_workload_tiles": [
+          1.0,
+          16.0,
+          256.0
+        ],
+        "fit_dynamic_energy_uj": [
+          0.00017944286340000002,
+          0.00237319283232,
+          0.036657066639360004
+        ]
+      },
+      "mesh_compute": {
+        "coef_uj_per_tile": 0.002601733764717949,
+        "intercept_uj": -4.696789333347162e-06,
+        "rmse_uj": 1.2813361403691454e-05,
+        "r2": 0.9999999982230804,
+        "fit_workload_tiles": [
+          1.0,
+          16.0,
+          256.0
+        ],
+        "fit_dynamic_energy_uj": [
+          0.0026122336080000004,
+          0.04160689702399999,
+          0.666040096768
+        ]
+      },
+      "transposer_compute": {
+        "coef_uj_per_tile": 5.248765830605128e-05,
+        "intercept_uj": -1.3291444906661047e-06,
+        "rmse_uj": 3.4862523253131617e-07,
+        "r2": 0.9999999967680057,
+        "fit_workload_tiles": [
+          1.0,
+          16.0,
+          256.0
+        ],
+        "fit_dynamic_energy_uj": [
+          5.157198296000001e-05,
+          0.0008380340774399999,
+          0.01343553722368
+        ]
+      }
+    },
+    "acc_compute_note": "acc_tiles_* builds had no calibration_meta.txt at postprocess time \u2014 no fit until VCS step writes meta."
+  },
+  "memory_energy_pj_per_byte": {
+    "hbm_energy_per_byte_pj": 60.0,
+    "sram_energy_per_byte_pj": 6.85,
+    "notes": "VRAM/HBM-style traffic: 60 pJ/byte (GDDR6 class ~7.5 pJ/bit). On-chip SRAM scratchpad proxy: 6.85 pJ/byte. Applied via cost_tags offchip_movement / onchip_movement / tensor_compute energy_per_byte_pj for matmul preliminary.",
+    "references": [
+      "Horowitz ISSCC 2014 (Computing's energy problem)",
+      "O'Connor MICRO 2017; Chatterjee HPCA 2017 (DRAM/GPU memory energy)"
+    ]
   }
 }

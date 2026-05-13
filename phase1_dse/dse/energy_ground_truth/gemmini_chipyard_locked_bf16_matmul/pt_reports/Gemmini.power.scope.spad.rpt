@@ -1,0 +1,54 @@
+****************************************
+Report : Averaged Power
+	-verbose
+	-significant_digits
+	-nosplit
+Design : Gemmini/spad (Gemmini_Scratchpad)
+Version: V-2023.12-SP5-1
+Date   : Mon Apr 20 11:55:35 2026
+****************************************
+
+Library(s) Used:
+
+    sky130_fd_sc_hd__tt_025C_1v80 (File: /scratch/krish/better-mflowgen-template-repo/better-mflowgen/mflowgen/builds/gemmini_chipyard_locked_bf16_matmul/3-skywater-130nm/view-standard/stdcells.db)
+
+
+Operating Conditions: tt_025C_1v80   Library: sky130_fd_sc_hd__tt_025C_1v80
+Wire Load Model Mode: top
+
+Cell               Design       Wire_model  Library       Selection_type
+--------------------------------------------------------------------------------
+                   Gemmini      Small       sky130_fd_sc_hd__tt_025C_1v80 library default
+
+Power-specific unit information :
+    Voltage Units = 1 V
+    Capacitance Units = 1 pf
+    Time Units = 1 ns
+    Dynamic Power Units = 1 W
+    Leakage Power Units = 1 W
+
+
+
+  Attributes
+  ----------
+      i  -  Including register clock pin internal power
+      u  -  User defined power group
+
+                        Internal             Switching            Leakage              Total
+Power Group             Power                Power                Power                Power               (     %)   Attrs
+----------------------------------------------------------------------------------------------------------------------------
+clock_network           9.72231030e-02       9.88539085e-02       3.27631540e-07       1.96077347e-01      (100.00%)  i
+register                0.00000000e+00       0.00000000e+00       1.94819404e-06       1.94819404e-06      ( 0.00%)   
+combinational           0.00000000e+00       0.00000000e+00       1.26364444e-06       1.26364444e-06      ( 0.00%)   
+sequential              0.00000000e+00       0.00000000e+00       0.00000000e+00       0.00000000e+00      ( 0.00%)   
+memory                  0.00000000e+00       0.00000000e+00       0.00000000e+00       0.00000000e+00      ( 0.00%)   
+io_pad                  0.00000000e+00       0.00000000e+00       0.00000000e+00       0.00000000e+00      ( 0.00%)   
+black_box               0.00000000e+00       0.00000000e+00       0.00000000e+00       0.00000000e+00      ( 0.00%)   
+
+  Net Switching Power  =    0.0989   (50.41%)
+  Cell Internal Power  =    0.0972   (49.58%)
+  Cell Leakage Power   = 3.539e-06   ( 0.00%)
+                         ---------
+Total Power            =    0.1961  (100.00%)
+
+1

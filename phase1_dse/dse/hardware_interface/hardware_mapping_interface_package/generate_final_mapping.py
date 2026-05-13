@@ -46,6 +46,32 @@ def read_json(name):
         return json.load(f)
 
 
+def read_existing_compound_action_models():
+    """Preserve hand-authored compound/action metadata across regeneration.
+
+    The CSV sheets describe primitive → realization → IP flow. Gemmini's
+    detailed tiled-action metadata is richer than the spreadsheet schema, so
+    keep it from the current final_mapping.json when regenerating the workbook
+    or JSON.
+    """
+    if not os.path.exists(OUT_JSON):
+        return {}
+    try:
+        with open(OUT_JSON) as f:
+            current = json.load(f)
+    except Exception:
+        return {}
+
+    models = {}
+    for primitive in (current.get("primitives") or {}).values():
+        for realization in primitive.get("realizations") or []:
+            rid = realization.get("realization_id")
+            model = realization.get("compound_action_model")
+            if rid and model:
+                models[rid] = model
+    return models
+
+
 def style_header(ws, ncols):
     for col in range(1, ncols + 1):
         cell = ws.cell(row=1, column=col)
@@ -121,6 +147,7 @@ def main():
     ip_flow_rows = read_csv("realization_ip_flow.csv")
     cost_rows = read_csv("realization_cost_tags.csv")
     fused_data = read_json("fused_patterns.json")
+    compound_action_models = read_existing_compound_action_models()
 
     cost_map = {}
     for r in cost_rows:
@@ -225,6 +252,8 @@ def main():
             "cost_formula_hint": cost_map.get(rid, {}).get("cost_formula_hint", ""),
             "gemmini_rationale": row.get("gemmini_rationale", ""),
         }
+        if rid in compound_action_models:
+            entry["compound_action_model"] = compound_action_models[rid]
         primitives_json[prim]["realizations"].append(entry)
 
     out = OrderedDict()
@@ -232,7 +261,8 @@ def main():
     out["model"] = "realization_first"
     out["description"] = (
         "Each TAIDL/XLA primitive maps to one or more realizations. "
-        "Each realization maps to an ordered IP flow and a cost tag. "
+        "Each realization maps to an ordered IP flow, an optional compound "
+        "action model, and a cost tag. "
         "Fused patterns override individual per-op mappings."
     )
     out["pipeline_stages"] = [
@@ -242,7 +272,8 @@ def main():
         "4. Fusion check (fused_patterns, highest priority first)",
         "5. Per-op realization selection (default unless condition selects alternative)",
         "6. IP flow assignment",
-        "7. Cost aggregation via cost_tag",
+        "7. Optional compound action expansion for hardware-specific tiled schedules",
+        "8. Cost aggregation via cost_tag and action/event coefficients",
     ]
     out["primitives"] = primitives_json
     out["fused_patterns"] = fused_data["fused_patterns"]

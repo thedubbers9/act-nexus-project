@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Fork note (MLIR-hardware-analysis): default REFERENCE_HLO is workloads/gemmini_anchor_attention_tile64.hlo
-# (Gemmini anchor attention). Upstream used attention_tile64_workable.hlo — removed; see ACT_CALIBRATION_FORK_NOTES.md.
+# (Gemmini anchor attention). Upstream used attention_tile64_workable.hlo, which is not part of this fork.
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"

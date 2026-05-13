@@ -1,0 +1,7 @@
+HloModule resadd_256x256, entry_computation_layout={(bf16[256,256]{1,0}, bf16[256,256]{1,0})->bf16[256,256]{1,0}}
+
+ENTRY main {
+  %a = bf16[256,256] parameter(0)
+  %b = bf16[256,256] parameter(1)
+  ROOT %out = bf16[256,256] add(%a, %b)
+}

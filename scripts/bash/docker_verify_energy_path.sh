@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Non-interactive smoke test: ACT Docker image + Phase-1 static energy CLI.
+# Non-interactive smoke test: ACT Docker image + Phase-1 energy CLI.
 # Run from anywhere; mounts the ACT repo root at /workspace.
 set -euo pipefail
 

@@ -1,0 +1,26 @@
+{
+  "ip_id": "transposer_compute",
+  "records": [
+    {
+      "workload_size": 1,
+      "op_type": "transpose_bf16_elem",
+      "op_count": 64,
+      "dynamic_energy_uj": 5.157198296000001e-05,
+      "energy_pj_per_op": 0.8058122337500001
+    },
+    {
+      "workload_size": 16,
+      "op_type": "transpose_bf16_elem",
+      "op_count": 1024,
+      "dynamic_energy_uj": 0.0008380340774399999,
+      "energy_pj_per_op": 0.8183926537499999
+    },
+    {
+      "workload_size": 256,
+      "op_type": "transpose_bf16_elem",
+      "op_count": 16384,
+      "dynamic_energy_uj": 0.01343553722368,
+      "energy_pj_per_op": 0.8200401137500001
+    }
+  ]
+}

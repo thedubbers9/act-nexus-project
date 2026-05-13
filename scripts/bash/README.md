@@ -32,9 +32,9 @@ Environment overrides (all optional): `PYTHON_BIN`, `SKIP_REGEN=1`, `HW_RESOURCE
 
 - Package: `phase1_dse/dse/` (`dse`).
 - Example demo: `bash phase1_dse/dse/scripts/run_gemmini_dse_demo.sh` from ACT repo root.
-- Calibration notes: `phase1_dse/README.md`, `ACT_CALIBRATION_FORK_NOTES.md`.
+- Energy notes: `phase1_dse/README.md`, `phase1_dse/ENERGY_ESTIMATION.md`, and `phase1_dse/HARDWARE_INTERFACE_ENERGY.md`.
 
-## Docker: verify static energy path
+## Docker: verify energy path
 
 ```bash
 cd /path/to/act/scripts/bash

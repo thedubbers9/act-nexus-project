@@ -1,37 +1,76 @@
-# Phase-1 DSE (isolated tree)
+# Phase-1 ACT Energy Documentation
 
-This folder holds the **Phase-1 design-space exploration (DSE)** Python package and assets. It is **optional** for the **Gemmini ↔ PrimeTime ↔ ACT** calibration workflow in `MLIR-hardware-analysis` (that path uses `estimate_primitive_resources.py`, `primitive_hw_config_micro.json`, and `plot_isa_workload_costs.py` instead).
+This folder contains the documentation for the current ACT energy-estimation
+flow used in this fork.
 
-## What ships in this fork
+The story is intentionally split into only three active documents:
+
+| Document | Purpose |
+| --- | --- |
+| `README.md` | This overview: what to read first and how the pieces fit together. |
+| `ENERGY_ESTIMATION.md` | The detailed energy-estimation flow: `.pii` input, Python code path, config files, action counts, outputs, and a GEMM example. |
+| `HARDWARE_INTERFACE_ENERGY.md` | The hardware-interface flow: semantic primitive -> Gemmini realization -> hardware actions -> energy buckets. |
+
+## Current Flow
+
+ACT produces candidate `.pii` programs. The energy estimator reads those files,
+maps each instruction to a Gemmini hardware realization, expands tiled workloads
+into hardware action counts, and multiplies those counts by measured or proxy
+energy coefficients.
+
+```text
+HLO workload
+  -> ACT backend candidates
+  -> .pii candidate files
+  -> hardware-interface realization selection
+  -> Gemmini action counts
+  -> energy coefficients
+  -> candidate energy ranking + validation graphs
+```
+
+For example, a 64x64 GEMM is not charged as one abstract `gemm`. The hardware
+interface maps it to `dot -> loop_ws_tiled`, then the estimator counts the
+repeated 8x8 mesh passes, SPAD movement, ACC chunks, and command activity.
+
+---
+
+## Where the Code Lives
 
 | Path | Role |
-|------|------|
-| `dse/` | Python package `dse`: **static energy on `.pii`** (`energy_workload` / `energy_estimate`), PII parsing, hardware-mapping metadata, tests, `primitive_hw_config.json`. |
-| `dse/scripts/run_gemmini_dse_demo.sh` | One-shot demo: `python3 -m dse.energy_workload` (+ optional plots). |
-| `_archived_pii_roofline/` | Archived **roofline / `dse.forward_bound`** hook, old YAML configs, and compile-driver scripts. See `_archived_pii_roofline/README.md`. |
+| --- | --- |
+| `dse/src/parse_pii.py` | Parses `.pii` files into instruction records. |
+| `dse/src/energy_estimate.py` | Main energy estimator and Gemmini schedule/action expansion. |
+| `dse/src/energy_workload.py` | CLI driver for one `.pii` file or a directory of candidates. |
+| `dse/src/features.py` | Helper for shape/op/byte terms used by the estimator. |
+| `dse/config/primitive_hw_config_micro.json` | Current Gemmini energy coefficients and schedule-event model knobs. |
+| `dse/hardware_interface/hardware_mapping_interface_package/final_mapping.json` | Runtime primitive-to-realization mapping. |
+| `estimate_primitive_resources.py` | Helper for primitive-resource summaries from JSON descriptions. |
+| `plot_isa_workload_costs.py` | Helper for backend ISA instruction-cost plots. |
 
-Compiler flag **`--pre-schedule-dse`** is a **deprecated no-op** (prints a skip notice). Roofline code was removed from the live import path; restore from `_archived_pii_roofline/` if you need it.
+---
 
-## How Python finds `dse`
+## Basic Command
 
-Run from the **ACT repository root**:
-
-```bash
-export PYTHONPATH=".:$(pwd)/phase1_dse"
-python3 -m dse.energy_workload --help
-```
-
-## Demo
+Run this from the ACT repo root:
 
 ```bash
-cd /path/to/submodule/act
-bash phase1_dse/dse/scripts/run_gemmini_dse_demo.sh
+export PYTHONPATH=".:phase1_dse"
+python3 -m dse.energy_workload \
+  --input log/demo_matmul/run \
+  --hw_config phase1_dse/dse/config/primitive_hw_config_micro.json \
+  --mapping_json phase1_dse/dse/hardware_interface/hardware_mapping_interface_package/final_mapping.json \
+  --out demo_output/energy_matmul_all \
+  --plot
 ```
 
-## Why this was moved under `phase1_dse/`
+Main outputs:
 
-To separate **pre-schedule analytical DSE** (now mostly archived here) from the **calibration-grade ACT energy** pipeline and reduce confusion about which tools participate in PrimeTime comparisons.
+| Output | Meaning |
+| --- | --- |
+| `energy_summary.json` | Overall result for all candidates. |
+| `candidate_energy.csv` | One row per candidate with total energy and breakdown fields. |
+| `energy_detail_*.json` | Per-instruction primitive, realization, schedule events, and energy. |
+| `plots/energy_by_cost_tag_*.png` | Optional plot output when `--plot` is enabled. |
 
-## Full runbook (Docker + ACT + workloads + plots)
-
-See **[ENERGY_ESTIMATION_RUNBOOK.md](ENERGY_ESTIMATION_RUNBOOK.md)**.
+Read `ENERGY_ESTIMATION.md` next for the code-level walkthrough, then
+`HARDWARE_INTERFACE_ENERGY.md` for the realization mapping details.

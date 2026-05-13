@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """ACT vs PT bucket comparison v1: split tensor_compute into op vs byte terms (mesh vs scratchpad).
 
-Uses the same op/local accounting as ``act/dse/src/features._instruction_contrib``
+Uses cost_tags from primitive_hw_config (same op/local accounting as ``act/dse/src/features._instruction_contrib``
 and tensor_compute rates from ``primitive_hw_config_micro.json``.
 Per-instruction energies default to pt_comparison_bundle.json ``act.instruction_breakdown_pj``;
 the gemm instruction is split between PT buckets using the op:byte ratio from
-``primitive_hw_config_micro.json`` tensor_compute (energy_per_op_pj / energy_per_byte_pj).
+``primitive_hw_config_micro.json tensor_compute (energy_per_op_pj / energy_per_byte_pj).
 
 Run from anywhere:
   python3 act_pt_term_bucket_v1.py [--bundle PATH] [--hw PATH]
@@ -27,10 +27,14 @@ def _repo_act_root() -> Path:
 def _import_act_dse():
     act = _repo_act_root()
     sys.path.insert(0, str(act))
-    from dse.src.energy_estimate import _load_abstraction_classes
+    from dse.src.energy_estimate import _load_cost_profiles
     from dse.src.features import _instruction_contrib
 
-    return _load_abstraction_classes, _instruction_contrib
+    def _load_hw_tags(hw_path: str):
+        tags, _src, _hw_config = _load_cost_profiles(hw_path)
+        return tags
+
+    return _load_hw_tags, _instruction_contrib
 
 
 def _pt_buckets_from_act_epoch(
@@ -132,9 +136,9 @@ def main() -> None:
     )
     args = ap.parse_args()
 
-    _load_abstraction_classes, _instruction_contrib = _import_act_dse()
+    _load_hw_tags, _instruction_contrib = _import_act_dse()
     bundle = json.loads(args.bundle.read_text())
-    classes = _load_abstraction_classes(str(args.hw))
+    classes = _load_hw_tags(str(args.hw))
 
     act_meta = bundle.get("act") or {}
     epochs = (act_meta.get("pt_window_event_model") or {}).get("measured_from_saif") or {}
